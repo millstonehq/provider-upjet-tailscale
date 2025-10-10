@@ -1,0 +1,81 @@
+apiVersion: meta.pkg.crossplane.io/v1alpha1
+kind: Provider
+metadata:
+  name: provider-tailscale
+  annotations:
+    meta.crossplane.io/maintainer: Millstone Services LLC
+    meta.crossplane.io/source: github.com/millstonehq/mill
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/description: |
+      Crossplane provider for Tailscale infrastructure management.
+    meta.crossplane.io/readme: |
+      # Crossplane Provider Tailscale
+
+      This provider enables declarative management of Tailscale resources via Crossplane.
+
+      ## Features
+      - ACL management with HuJSON support
+      - DNS nameserver configuration
+      - Auth key generation with tags
+      - Device tag assignment
+      - Device authorization
+
+      ## Authentication
+      Supports both API key and OAuth client credentials authentication.
+
+      ## Installation
+      ```yaml
+      apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      metadata:
+        name: provider-tailscale
+      spec:
+        package: xpkg.upbound.io/millstonehq/provider-tailscale:v0.1.0
+      ```
+
+      ## Configuration
+      ```yaml
+      apiVersion: tailscale.upbound.io/v1beta1
+      kind: ProviderConfig
+      metadata:
+        name: default
+      spec:
+        credentials:
+          source: Secret
+          secretRef:
+            name: tailscale-creds
+            namespace: crossplane-system
+            key: api_key
+      ```
+
+      For more information, visit: https://github.com/millstonehq/mill/tree/main/providers/crossplane-provider-tailscale
+spec:
+  crossplane:
+    version: ">=v1.14.0-0"
+  controller:
+    image: ctlptl-registry:5000/provider-tailscale-controller:latest
+    permissionRequests:
+    - apiGroups:
+      - tailscale.upbound.io
+      resources:
+      - providerconfigs
+      - providerconfigs/status
+      verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+    - apiGroups:
+      - tailscale.upbound.io
+      resources:
+      - providerconfigusages
+      - providerconfigusages/status
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete

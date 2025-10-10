@@ -1,0 +1,49 @@
+apiVersion: acl.tailscale.upbound.io/v1alpha1
+kind: ACL
+metadata:
+  name: example-acl
+spec:
+  forProvider:
+    # ACL in HuJSON format (JSON with comments and trailing commas)
+    acl: |
+      {
+        // Define groups of users
+        "groups": {
+          "group:admin": ["user1@example.com", "user2@example.com"],
+          "group:dev": ["user3@example.com"],
+        },
+
+        // Define host aliases
+        "hosts": {
+          "db-server": "100.64.0.5",
+          "api-server": "100.64.0.10",
+        },
+
+        // Define ACL rules
+        "acls": [
+          // Admins can access everything
+          {
+            "action": "accept",
+            "src": ["group:admin"],
+            "dst": ["*:*"],
+          },
+          // Developers can access development servers
+          {
+            "action": "accept",
+            "src": ["group:dev"],
+            "dst": ["tag:dev:*"],
+          },
+        ],
+
+        // SSH access rules
+        "ssh": [
+          {
+            "action": "accept",
+            "src": ["group:admin"],
+            "dst": ["autogroup:self"],
+            "users": ["root", "autogroup:nonroot"],
+          },
+        ],
+      }
+  providerConfigRef:
+    name: default
