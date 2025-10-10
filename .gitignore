@@ -1,0 +1,46 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+*.coverprofile
+
+# Kubernetes Generated files - skip generated files
+*.gen.go
+zz_generated.*
+
+# Build output
+output/
+_output/
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+*.code-workspace
+
+# Crossplane
+*.xpkg
+package/crds/
+.uptest/
+
+# Work directory
+.work/
+
+# Dependency directories
+vendor/

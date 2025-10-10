@@ -1,0 +1,14 @@
+apiVersion: device.tailscale.upbound.io/v1alpha1
+kind: Authorization
+metadata:
+  name: example-device-authorization
+spec:
+  forProvider:
+    # Device ID to authorize
+    deviceId: "12345678901234567"
+
+    # Authorize the device (set to true to approve)
+    authorized: true
+
+  providerConfigRef:
+    name: default

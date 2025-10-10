@@ -1,0 +1,33 @@
+apiVersion: tailnetkey.tailscale.upbound.io/v1alpha1
+kind: Key
+metadata:
+  name: example-auth-key
+spec:
+  forProvider:
+    # Reusable auth key (can be used multiple times)
+    reusable: true
+
+    # Ephemeral nodes (deleted when they go offline)
+    ephemeral: false
+
+    # Preauthorize devices (skip manual approval)
+    preauthorized: true
+
+    # Key expiry in seconds (default: 90 days)
+    expirySeconds: 7776000
+
+    # Tags to apply to devices using this key
+    tags:
+      - "tag:k8s"
+      - "tag:crossplane"
+
+    # Optional: description for the key
+    description: "Crossplane-managed auth key for Kubernetes nodes"
+
+  # Write the generated key to a connection secret
+  writeConnectionSecretToRef:
+    name: tailscale-auth-key
+    namespace: crossplane-system
+
+  providerConfigRef:
+    name: default

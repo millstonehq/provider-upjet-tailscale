@@ -1,0 +1,13 @@
+apiVersion: dns.tailscale.upbound.io/v1alpha1
+kind: Nameservers
+metadata:
+  name: example-nameservers
+spec:
+  forProvider:
+    # List of DNS nameservers for the tailnet
+    nameservers:
+      - "1.1.1.1"
+      - "8.8.8.8"
+      - "2606:4700:4700::1111"  # Cloudflare IPv6
+  providerConfigRef:
+    name: default

@@ -1,0 +1,17 @@
+apiVersion: device.tailscale.upbound.io/v1alpha1
+kind: Tags
+metadata:
+  name: example-device-tags
+spec:
+  forProvider:
+    # Device ID to apply tags to
+    deviceId: "12345678901234567"
+
+    # Tags to apply to the device
+    tags:
+      - "tag:prod"
+      - "tag:database"
+      - "tag:monitoring"
+
+  providerConfigRef:
+    name: default
