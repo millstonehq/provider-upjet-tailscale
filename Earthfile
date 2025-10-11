@@ -35,9 +35,14 @@ deps:
 schema:
     FROM ../../lib/build-config/terraform/+terraform-builder
 
-    # Extract provider schema using OpenTofu
+    # Copy source to extract version (single source of truth)
+    COPY internal/clients/tailscale.go /tmp/tailscale.go
+
+    # Extract provider schema using OpenTofu with version from Go source
     WORKDIR /tmp/terraform
-    RUN echo '{"terraform":[{"required_providers":[{"tailscale":{"source":"tailscale/tailscale","version":"0.22.0"}}]}]}' > main.tf.json && \
+    RUN PROVIDER_VERSION=$(grep 'TerraformProviderVersion = ' /tmp/tailscale.go | sed 's/.*"\(.*\)".*/\1/') && \
+        echo "Using Terraform provider version: $PROVIDER_VERSION" && \
+        echo "{\"terraform\":[{\"required_providers\":[{\"tailscale\":{\"source\":\"tailscale/tailscale\",\"version\":\"$PROVIDER_VERSION\"}}]}]}" > main.tf.json && \
         tofu init && \
         tofu providers schema -json=true > /app/schema.json
 
