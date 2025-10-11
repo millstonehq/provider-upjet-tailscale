@@ -26,7 +26,7 @@ const (
 	// TerraformProviderSource is the source for the Terraform provider
 	TerraformProviderSource = "tailscale/tailscale"
 	// TerraformProviderVersion is the version of the Terraform provider
-	TerraformProviderVersion = "0.18.0"
+	TerraformProviderVersion = "0.22.0"
 )
 
 // TerraformSetupBuilder returns Terraform setup with provider config.
