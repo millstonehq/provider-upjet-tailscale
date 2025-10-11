@@ -18,5 +18,23 @@ func Configure(p *config.Provider) {
 		r.Kind = "Client"
 
 		r.UseAsync = false
+
+		// Configure connection details to match Tailscale operator expectations
+		// Operator expects: client_id and client_secret (as files in mounted volume)
+		r.Sensitive.AdditionalConnectionDetailsFn = func(attr map[string]any) (map[string][]byte, error) {
+			conn := map[string][]byte{}
+
+			// Extract client ID from the resource ID
+			if id, ok := attr["id"].(string); ok {
+				conn["client_id"] = []byte(id)
+			}
+
+			// Extract client secret from the key attribute
+			if key, ok := attr["key"].(string); ok {
+				conn["client_secret"] = []byte(key)
+			}
+
+			return conn, nil
+		}
 	})
 }
