@@ -61,7 +61,7 @@ generate-raw:
 
     # Run Upjet code generation (generates fresh: apis/zz_register.go, apis/*/v1alpha1, internal/controller/*, package/crds/)
     RUN go run cmd/generator/main.go "$(pwd)"
-    
+
     # Save generated code before controller-gen
     SAVE ARTIFACT apis AS LOCAL apis-generated
     SAVE ARTIFACT internal AS LOCAL internal-generated
@@ -91,7 +91,9 @@ build:
     # Build the provider binary with optimizations
     # -ldflags="-s -w" strips debug info and symbol table (saves ~15MB)
     # -trimpath removes file system paths from binary
-    RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    # TARGETARCH is built-in and set automatically by Earthly based on --platform
+    ARG TARGETARCH
+    RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
         -ldflags="-s -w" \
         -trimpath \
         -o bin/provider \
@@ -101,38 +103,84 @@ build:
 
 image:
     # Production runtime: terraform-runtime (base-runtime + tofu only, no debug tools)
-    FROM ../../lib/build-config/terraform/+terraform-runtime
+    # Multi-platform build - TARGETPLATFORM/TARGETARCH are built-in and set by Earthly
+    ARG TARGETPLATFORM
+    ARG TARGETARCH
+    FROM --platform=$TARGETPLATFORM ../../lib/build-config/terraform/+terraform-runtime
 
     COPY +build/provider /usr/local/bin/provider
 
     ENTRYPOINT ["/usr/local/bin/provider"]
 
     ARG VERSION=v0.1.0
-    # Local build: save both tags but don't push
+    # Save image for each platform
     SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
     SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
 
+controller-tarball:
+    # Build controller tarball for ARM64 (current cluster architecture)
+    FROM alpine:latest
+    RUN apk add docker-cli
+
+    # Build ARM64 image first
+    BUILD --platform=linux/arm64 +image
+
+    # Load the ARM64 image and save it as tarball
+    WITH DOCKER --load=ghcr.io/millstonehq/provider-tailscale:latest=+image --platform=linux/arm64
+        RUN docker save ghcr.io/millstonehq/provider-tailscale:latest -o /tmp/controller.tar
+    END
+
+    SAVE ARTIFACT /tmp/controller.tar controller.tar
+
+push-images:
+    # Push multi-arch controller images to GHCR
+    # Run with: earthly --push +push-images --GITHUB_TOKEN=$GITHUB_TOKEN
+    ARG VERSION=v0.1.0
+    ARG GITHUB_TOKEN
+    FROM alpine:latest
+
+    RUN apk add docker-cli
+
+    # Login to GHCR
+    RUN echo "$GITHUB_TOKEN" | docker login ghcr.io -u millstone-bot --password-stdin
+
+    # Build and push both amd64 and arm64 images
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
+
+    # Create and push multi-arch manifest
+    RUN docker buildx imagetools create -t ghcr.io/millstonehq/provider-tailscale:${VERSION} \
+        -t ghcr.io/millstonehq/provider-tailscale:latest \
+        ghcr.io/millstonehq/provider-tailscale:${VERSION}
+
 push:
-    # Push target: only push :latest tag to minimize GHCR storage
-    # Run with: earthly --push +push
-    FROM +image
+    # Push xpkg package with embedded ARM64 controller runtime to GHCR
+    # Uses crossplane CLI to properly push OCI artifacts with embedded images
+    # Run with: earthly --push +push --GITHUB_TOKEN=$GITHUB_TOKEN
+    #
+    # ⚠️  SECURITY NOTE: This target uses ARG GITHUB_TOKEN which bakes the token into
+    # this ephemeral alpine image's layers. This image is NEVER pushed (no SAVE IMAGE).
+    # Only the pre-built xpkg package (which doesn't contain the token) is pushed.
+    # DO NOT add SAVE IMAGE to this target.
+    FROM +builder-base
 
     ARG VERSION=v0.1.0
-    # Only push latest tag to save GHCR storage (175MB per image)
-    # For versioned releases, manually tag and push specific versions
-    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:latest
+    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
+    ARG GITHUB_TOKEN
 
-controller-tarball:
-    LOCALLY
-    # Ensure controller image is built
-    BUILD +image
-    RUN docker save ghcr.io/millstonehq/provider-tailscale:latest -o /tmp/provider-controller.tar
-    SAVE ARTIFACT /tmp/provider-controller.tar controller.tar
+    COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
+
+    # Use crossplane CLI to push xpkg with embedded runtime artifacts
+    # crossplane CLI uses docker credentials, so login with docker first
+    USER root
+    RUN apk add docker-cli
+    USER nonroot
+    RUN echo "$GITHUB_TOKEN" | docker login ghcr.io -u millstone-bot --password-stdin && \
+        crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
 
 package-build:
     FROM +generate
 
-    # Get controller image tarball
+    # Get ARM64 controller image tarball
     COPY +controller-tarball/controller.tar /tmp/controller.tar
 
     # Build xpkg package with embedded controller runtime tarball
