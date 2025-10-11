@@ -23,22 +23,34 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1alpha1 "github.com/millstonehq/provider-upjet-tailscale/apis/acl/v1alpha1"
+	v1alpha1aws "github.com/millstonehq/provider-upjet-tailscale/apis/aws/v1alpha1"
 	v1alpha1device "github.com/millstonehq/provider-upjet-tailscale/apis/device/v1alpha1"
 	v1alpha1dns "github.com/millstonehq/provider-upjet-tailscale/apis/dns/v1alpha1"
+	v1alpha1logstream "github.com/millstonehq/provider-upjet-tailscale/apis/logstream/v1alpha1"
+	v1alpha1oauth "github.com/millstonehq/provider-upjet-tailscale/apis/oauth/v1alpha1"
+	v1alpha1posture "github.com/millstonehq/provider-upjet-tailscale/apis/posture/v1alpha1"
+	v1alpha1tailnet "github.com/millstonehq/provider-upjet-tailscale/apis/tailnet/v1alpha1"
 	v1alpha1tailnetkey "github.com/millstonehq/provider-upjet-tailscale/apis/tailnetkey/v1alpha1"
 	v1alpha1apis "github.com/millstonehq/provider-upjet-tailscale/apis/v1alpha1"
 	v1beta1 "github.com/millstonehq/provider-upjet-tailscale/apis/v1beta1"
+	v1alpha1webhook "github.com/millstonehq/provider-upjet-tailscale/apis/webhook/v1alpha1"
 )
 
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes,
 		v1alpha1.SchemeBuilder.AddToScheme,
+		v1alpha1aws.SchemeBuilder.AddToScheme,
 		v1alpha1device.SchemeBuilder.AddToScheme,
 		v1alpha1dns.SchemeBuilder.AddToScheme,
+		v1alpha1logstream.SchemeBuilder.AddToScheme,
+		v1alpha1oauth.SchemeBuilder.AddToScheme,
+		v1alpha1posture.SchemeBuilder.AddToScheme,
+		v1alpha1tailnet.SchemeBuilder.AddToScheme,
 		v1alpha1tailnetkey.SchemeBuilder.AddToScheme,
 		v1alpha1apis.SchemeBuilder.AddToScheme,
 		v1beta1.SchemeBuilder.AddToScheme,
+		v1alpha1webhook.SchemeBuilder.AddToScheme,
 	)
 }
 

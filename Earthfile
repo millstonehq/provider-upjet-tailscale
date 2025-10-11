@@ -37,7 +37,7 @@ schema:
 
     # Extract provider schema using OpenTofu
     WORKDIR /tmp/terraform
-    RUN echo '{"terraform":[{"required_providers":[{"tailscale":{"source":"tailscale/tailscale","version":"0.19.0"}}]}]}' > main.tf.json && \
+    RUN echo '{"terraform":[{"required_providers":[{"tailscale":{"source":"tailscale/tailscale","version":"0.22.0"}}]}]}' > main.tf.json && \
         tofu init && \
         tofu providers schema -json=true > /app/schema.json
 
