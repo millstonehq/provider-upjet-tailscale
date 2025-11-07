@@ -5,9 +5,19 @@ import (
 	"github.com/crossplane/upjet/v2/pkg/config"
 )
 
+// adder is a narrow interface to allow testing without a real Provider.
+type adder interface {
+	AddResourceConfigurator(name string, f config.ResourceConfiguratorFn)
+}
+
 // Configure configures AWS integration resources.
 func Configure(p *config.Provider) {
-	p.AddResourceConfigurator("tailscale_aws_external_id", func(r *config.Resource) {
+	configureWithAdder(p)
+}
+
+// configureWithAdder is the testable entrypoint.
+func configureWithAdder(a adder) {
+	a.AddResourceConfigurator("tailscale_aws_external_id", func(r *config.Resource) {
 		// AWS external ID is a singleton resource - use identifier from provider
 		r.ExternalName = config.IdentifierFromProvider
 

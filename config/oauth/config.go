@@ -5,9 +5,19 @@ import (
 	"github.com/crossplane/upjet/v2/pkg/config"
 )
 
+// adder is a narrow interface to allow testing without a real Provider.
+type adder interface {
+	AddResourceConfigurator(name string, f config.ResourceConfiguratorFn)
+}
+
 // Configure configures OAuth resources.
 func Configure(p *config.Provider) {
-	p.AddResourceConfigurator("tailscale_oauth_client", func(r *config.Resource) {
+	configureWithAdder(p)
+}
+
+// configureWithAdder is the testable entrypoint.
+func configureWithAdder(a adder) {
+	a.AddResourceConfigurator("tailscale_oauth_client", func(r *config.Resource) {
 		// Use identifier from provider
 		r.ExternalName = config.IdentifierFromProvider
 
