@@ -1,5 +1,8 @@
 # Crossplane Provider Tailscale
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub release](https://img.shields.io/github/release/millstonehq/provider-upjet-tailscale.svg)](https://github.com/millstonehq/provider-upjet-tailscale/releases)
+
 A Crossplane provider for managing Tailscale infrastructure declaratively using Kubernetes-style APIs.
 
 ## Overview
@@ -32,7 +35,7 @@ kind: Provider
 metadata:
   name: provider-tailscale
 spec:
-  package: xpkg.upbound.io/millstonehq/provider-tailscale:v0.1.0
+  package: ghcr.io/millstonehq/provider-upjet-tailscale:latest
 EOF
 
 # Verify installation
@@ -224,19 +227,47 @@ The provider supports two authentication methods:
      oauth_client_secret: "tskey-client-xxxxx"
    ```
 
-## Contributing
+## Community & Contributing
 
-Contributions are welcome! Please see the [Mill repository](https://github.com/millstonehq/mill) for contribution guidelines.
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+### How to Contribute
+
+1. **Fork the repository** on GitHub
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Make your changes** and commit them (`git commit -m 'feat: add amazing feature'`)
+4. **Push to your branch** (`git push origin feature/amazing-feature`)
+5. **Open a Pull Request**
+
+Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
+- Development setup and building from source
+- Code style and conventions
+- Testing requirements
+- PR submission process
+
+### Getting Help
+
+- 📚 [Documentation](https://github.com/millstonehq/provider-upjet-tailscale/tree/main/examples)
+- 🐛 [Report a Bug](https://github.com/millstonehq/provider-upjet-tailscale/issues/new?labels=bug)
+- 💡 [Request a Feature](https://github.com/millstonehq/provider-upjet-tailscale/issues/new?labels=enhancement)
+- 💬 [Discussions](https://github.com/millstonehq/provider-upjet-tailscale/discussions)
+
+### Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). By participating, you are expected to uphold this code.
 
 ## License
 
-Apache License 2.0 - Copyright 2024 Millstone Services LLC
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+Copyright 2025 Millstone Technologies, Inc.
 
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/millstonehq/mill/issues
-- Documentation: https://github.com/millstonehq/mill/tree/main/providers/crossplane-provider-tailscale
+- GitHub Issues: https://github.com/millstonehq/provider-upjet-tailscale/issues
+- Documentation: https://github.com/millstonehq/provider-upjet-tailscale/tree/main/examples
+- Discussions: https://github.com/millstonehq/provider-upjet-tailscale/discussions
 
 ## Roadmap
 

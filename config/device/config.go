@@ -5,10 +5,20 @@ import (
 	"github.com/crossplane/upjet/v2/pkg/config"
 )
 
+// adder is a narrow interface to allow testing without a real Provider.
+type adder interface {
+	AddResourceConfigurator(name string, f config.ResourceConfiguratorFn)
+}
+
 // Configure configures device-related resources.
 func Configure(p *config.Provider) {
+	configureWithAdder(p)
+}
+
+// configureWithAdder is the testable entrypoint.
+func configureWithAdder(a adder) {
 	// Device tags resource
-	p.AddResourceConfigurator("tailscale_device_tags", func(r *config.Resource) {
+	a.AddResourceConfigurator("tailscale_device_tags", func(r *config.Resource) {
 		// Use device_id as the external identifier
 		r.ExternalName = config.ParameterAsIdentifier("device_id")
 
@@ -22,7 +32,7 @@ func Configure(p *config.Provider) {
 	})
 
 	// Device authorization resource
-	p.AddResourceConfigurator("tailscale_device_authorization", func(r *config.Resource) {
+	a.AddResourceConfigurator("tailscale_device_authorization", func(r *config.Resource) {
 		// Use device_id as the external identifier
 		r.ExternalName = config.ParameterAsIdentifier("device_id")
 
@@ -36,7 +46,7 @@ func Configure(p *config.Provider) {
 	})
 
 	// Device key resource
-	p.AddResourceConfigurator("tailscale_device_key", func(r *config.Resource) {
+	a.AddResourceConfigurator("tailscale_device_key", func(r *config.Resource) {
 		// Use device_id as the external identifier
 		r.ExternalName = config.ParameterAsIdentifier("device_id")
 
@@ -50,7 +60,7 @@ func Configure(p *config.Provider) {
 	})
 
 	// Device subnet routes resource
-	p.AddResourceConfigurator("tailscale_device_subnet_routes", func(r *config.Resource) {
+	a.AddResourceConfigurator("tailscale_device_subnet_routes", func(r *config.Resource) {
 		// Use device_id as the external identifier
 		r.ExternalName = config.ParameterAsIdentifier("device_id")
 

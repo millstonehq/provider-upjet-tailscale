@@ -90,6 +90,47 @@ generate:
     SAVE ARTIFACT package AS LOCAL package
     SAVE ARTIFACT internal AS LOCAL internal
 
+test:
+    FROM +deps
+
+    # Copy all source files for testing
+    COPY --dir cmd config examples hack internal apis package /app/providers/provider-upjet-tailscale/
+    COPY go.mod go.sum examples_test.go /app/providers/provider-upjet-tailscale/
+    WORKDIR /app/providers/provider-upjet-tailscale
+
+    # Run unit tests with coverage (CGO disabled for pure Go testing)
+    RUN CGO_ENABLED=0 go test -v -cover -coverprofile=coverage.out \
+        ./internal/clients/... ./config/...
+
+    # Display coverage summary
+    RUN go tool cover -func=coverage.out | tee coverage.txt
+
+    # Calculate total coverage and ensure it meets minimum threshold
+    RUN COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//') && \
+        echo "Total Coverage: $COVERAGE%" && \
+        if [ "$(echo "$COVERAGE < 40" | bc -l)" -eq 1 ]; then \
+            echo "❌ Coverage $COVERAGE% is below minimum 40%"; \
+            exit 1; \
+        fi
+
+    SAVE ARTIFACT coverage.out AS LOCAL coverage.out
+    SAVE ARTIFACT coverage.txt AS LOCAL coverage.txt
+
+test-examples:
+    FROM +deps
+
+    # Copy necessary files for example validation
+    COPY --dir examples /app/providers/provider-upjet-tailscale/
+    COPY examples_test.go go.mod go.sum /app/providers/provider-upjet-tailscale/
+    WORKDIR /app/providers/provider-upjet-tailscale
+
+    # Run example validation tests
+    RUN CGO_ENABLED=0 go test -v ./examples_test.go
+
+test-all:
+    BUILD +test
+    BUILD +test-examples
+
 build:
     FROM +generate
 
