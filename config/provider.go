@@ -34,6 +34,7 @@ func GetProvider() *tjconfig.Provider {
 		modulePath,
 		[]byte{},        // Empty metadata
 		tjconfig.WithRootGroup("tailscale.upbound.io"),
+		tjconfig.WithFeaturesPackage("internal/features"),
 		tjconfig.WithIncludeList([]string{
 			// ACL resources
 			"tailscale_acl$",
