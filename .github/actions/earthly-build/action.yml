@@ -45,4 +45,4 @@ runs:
           PUSH_FLAG="--push"
         fi
 
-        earthly --ci $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
+        earthly --ci -P $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
