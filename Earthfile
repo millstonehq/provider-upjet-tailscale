@@ -132,14 +132,16 @@ test-all:
     BUILD +test-examples
 
 build:
-    FROM +generate
+    # Build on native platform (no QEMU) with cross-compilation
+    ARG BUILDPLATFORM
+    ARG GOOS=linux
+    ARG GOARCH
+    FROM --platform=$BUILDPLATFORM +generate
 
     # Build the provider binary with optimizations
     # -ldflags="-s -w" strips debug info and symbol table (saves ~15MB)
     # -trimpath removes file system paths from binary
-    # TARGETARCH is built-in and set automatically by Earthly based on --platform
-    ARG TARGETARCH
-    RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
+    RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build \
         -ldflags="-s -w" \
         -trimpath \
         -o bin/provider \
@@ -151,10 +153,12 @@ image:
     # Production runtime: terraform-runtime (base-runtime + tofu only, no debug tools)
     # Multi-platform build - TARGETPLATFORM/TARGETARCH are built-in and set by Earthly
     ARG TARGETPLATFORM
+    ARG TARGETOS
     ARG TARGETARCH
     FROM --platform=$TARGETPLATFORM ../../lib/build-config/terraform/+terraform-runtime
 
-    COPY +build/provider /usr/local/bin/provider
+    # Build the right binary for this platform, but compile on native arch (no QEMU)
+    COPY (+build/provider --GOOS=$TARGETOS --GOARCH=$TARGETARCH) /usr/local/bin/provider
 
     ENTRYPOINT ["/usr/local/bin/provider"]
 
