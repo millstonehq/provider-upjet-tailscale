@@ -9,11 +9,11 @@ A Crossplane provider for managing Tailscale infrastructure declaratively using 
 
 This provider enables you to manage Tailscale resources through Crossplane, bringing GitOps-style infrastructure management to your Tailscale tailnet.
 
-### Supported Resources (Phase 1)
+### Supported Resources
 
 - **ACL** - Manage tailnet access control lists with HuJSON support
 - **DNS Nameservers** - Configure custom DNS nameservers for your tailnet
-- **Auth Keys** - Generate authentication keys with tags and policies
+- **Tailnet Keys** - Generate authentication keys with tags and policies
 - **Device Tags** - Assign tags to devices in your tailnet
 - **Device Authorization** - Approve or manage device authorizations
 
@@ -35,7 +35,7 @@ kind: Provider
 metadata:
   name: provider-tailscale
 spec:
-  package: ghcr.io/millstonehq/provider-upjet-tailscale:latest
+  package: ghcr.io/millstonehq/provider-tailscale:latest
 EOF
 
 # Verify installation
@@ -175,32 +175,36 @@ spec:
 
 ### Building from Source
 
+This provider uses [Earthly](https://earthly.dev) for building and testing.
+
 ```bash
-# Clone the repository
-cd providers/crossplane-provider-tailscale
-
-# Initialize submodules (if using upjet build system)
-make submodules
-
 # Generate code
-make generate
+earthly +generate
 
 # Build the provider
-make build
+earthly +build
 
-# Run locally (out-of-cluster)
-make run
+# Run tests
+earthly +test
+
+# Test with examples
+earthly +test-examples
+
+# Run all tests (unit + examples)
+earthly +test-all
+
+# Build and push images (requires authentication)
+earthly --push +push
 ```
 
-### Testing
+### Local Development
 
 ```bash
-# Run unit tests
-go test -v ./...
+# Build provider package locally
+earthly +package-local
 
-# Run with a local Kubernetes cluster
-kind create cluster
-make run
+# Install in your cluster
+kubectl apply -f examples/providerconfig/
 ```
 
 ## Architecture
@@ -260,7 +264,7 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-Copyright 2025 Millstone Technologies, Inc.
+Copyright 2025 Millstone Partners, LLC
 
 ## Support
 
@@ -268,15 +272,6 @@ For issues and questions:
 - GitHub Issues: https://github.com/millstonehq/provider-upjet-tailscale/issues
 - Documentation: https://github.com/millstonehq/provider-upjet-tailscale/tree/main/examples
 - Discussions: https://github.com/millstonehq/provider-upjet-tailscale/discussions
-
-## Roadmap
-
-### Phase 2 (Future)
-- Tailnet settings management
-- Device subnet routes
-- Webhook configurations
-- Policy files
-- User management
 
 ## References
 
