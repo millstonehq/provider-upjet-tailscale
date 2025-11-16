@@ -37,12 +37,11 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         FORCE_COLOR: 1
+        EARTHLY_USE_INLINE_CACHE: true
       run: |
         PUSH_FLAG=""
-        CACHE_FLAGS="--remote-cache=ghcr.io/millstonehq/cache:provider-upjet-tailscale --max-remote-cache"
-
         if [ "${{ inputs.push }}" == "true" ]; then
           PUSH_FLAG="--push"
         fi
 
-        earthly --ci $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
+        earthly --ci $PUSH_FLAG --remote-cache=type=gha,mode=max ${{ inputs.earthly-target }}

@@ -5,7 +5,7 @@ PROJECT millstonehq/mill
 # Self-contained build pipeline for the Tailscale Crossplane provider
 
 builder-base:
-    FROM ghcr.io/millstonehq/tofu:builder
+    FROM ../../lib/build-config/base/+base-builder
 
     USER root
     # Install Go and tools for building the provider
@@ -33,7 +33,7 @@ deps:
     RUN go mod download
 
 schema:
-    FROM ghcr.io/millstonehq/tofu:builder
+    FROM ../../lib/build-config/terraform/+terraform-builder
 
     # Copy source to extract version (single source of truth)
     COPY internal/clients/tailscale.go /tmp/tailscale.go
@@ -149,12 +149,12 @@ build:
     SAVE ARTIFACT bin/provider AS LOCAL bin/provider
 
 image:
-    # Production runtime: tofu runtime (base-runtime + tofu only, no debug tools)
+    # Production runtime: terraform-runtime (base-runtime + tofu only, no debug tools)
     # Multi-platform build - TARGETPLATFORM/TARGETARCH are built-in and set by Earthly
     ARG TARGETPLATFORM
     ARG TARGETOS
     ARG TARGETARCH
-    FROM --platform=$TARGETPLATFORM ghcr.io/millstonehq/tofu:runtime
+    FROM --platform=$TARGETPLATFORM ../../lib/build-config/terraform/+terraform-runtime
 
     # Build the right binary for this platform, but compile on native arch (no QEMU)
     COPY (+build/provider --GOOS=$TARGETOS --GOARCH=$TARGETARCH) /usr/local/bin/provider
