@@ -180,15 +180,12 @@ controller-tarball:
 
 push-images:
     # Push multi-arch controller images to GHCR
-    # Run with: earthly --push +push-images --GITHUB_TOKEN=$GITHUB_TOKEN
+    # Run with: earthly --push +push-images
+    # Note: Requires docker login to ghcr.io (workflow does this)
     ARG VERSION=v0.1.0
-    ARG GITHUB_TOKEN
     FROM alpine:latest
 
     RUN apk add docker-cli
-
-    # Login to GHCR
-    RUN echo "$GITHUB_TOKEN" | docker login ghcr.io -u millstone-bot --password-stdin
 
     # Build and push both amd64 and arm64 images
     BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
@@ -201,27 +198,21 @@ push-images:
 push:
     # Push xpkg package with embedded ARM64 controller runtime to GHCR
     # Uses crossplane CLI to properly push OCI artifacts with embedded images
-    # Run with: earthly --push +push --GITHUB_TOKEN=$GITHUB_TOKEN
-    #
-    # ⚠️  SECURITY NOTE: This target uses ARG GITHUB_TOKEN which bakes the token into
-    # this ephemeral alpine image's layers. This image is NEVER pushed (no SAVE IMAGE).
-    # Only the pre-built xpkg package (which doesn't contain the token) is pushed.
-    # DO NOT add SAVE IMAGE to this target.
+    # Run with: earthly --push +push
+    # Note: Requires docker login to ghcr.io (workflow does this)
     FROM +builder-base
 
     ARG VERSION=v0.1.0
     ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
-    ARG GITHUB_TOKEN
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
 
     # Use crossplane CLI to push xpkg with embedded runtime artifacts
-    # crossplane CLI uses docker credentials, so login with docker first
+    # crossplane CLI uses docker credentials inherited from workflow
     USER root
     RUN apk add docker-cli
     USER nonroot
-    RUN echo "$GITHUB_TOKEN" | docker login ghcr.io -u millstone-bot --password-stdin && \
-        crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
+    RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
 
 package-build:
     FROM +generate
