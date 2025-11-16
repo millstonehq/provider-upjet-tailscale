@@ -91,10 +91,9 @@ generate:
     SAVE ARTIFACT internal AS LOCAL internal
 
 test:
-    FROM +deps
+    FROM +generate
 
-    # Copy all source files for testing
-    COPY --dir cmd config examples hack internal apis package /app/providers/provider-upjet-tailscale/
+    # Copy test file (other source files already generated)
     COPY go.mod go.sum examples_test.go /app/providers/provider-upjet-tailscale/
     WORKDIR /app/providers/provider-upjet-tailscale
 
@@ -117,11 +116,11 @@ test:
     SAVE ARTIFACT coverage.txt AS LOCAL coverage.txt
 
 test-examples:
-    FROM +deps
+    FROM +generate
 
     # Copy necessary files for example validation
     COPY --dir examples /app/providers/provider-upjet-tailscale/
-    COPY examples_test.go go.mod go.sum /app/providers/provider-upjet-tailscale/
+    COPY examples_test.go /app/providers/provider-upjet-tailscale/
     WORKDIR /app/providers/provider-upjet-tailscale
 
     # Run example validation tests
