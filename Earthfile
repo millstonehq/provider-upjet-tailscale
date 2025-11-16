@@ -5,7 +5,8 @@ PROJECT millstonehq/mill
 # Self-contained build pipeline for the Tailscale Crossplane provider
 
 builder-base:
-    FROM ghcr.io/millstonehq/tofu:builder
+    ARG BUILDPLATFORM
+    FROM --platform=$BUILDPLATFORM ghcr.io/millstonehq/tofu:builder
 
     USER root
     # Install Go and tools for building the provider
