@@ -2,6 +2,21 @@
 
 This directory contains example manifests for all supported Tailscale resources.
 
+## Installation
+
+Install the provider using kubectl:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-tailscale
+spec:
+  package: ghcr.io/millstonehq/provider-upjet-tailscale:latest
+EOF
+```
+
 ## Getting Started
 
 ### 1. Install the Provider
