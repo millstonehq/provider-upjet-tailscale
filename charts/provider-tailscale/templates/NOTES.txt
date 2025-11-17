@@ -9,12 +9,6 @@ Namespace: {{ .Release.Namespace }}
   - Provider: {{ include "provider-tailscale.fullname" . }}
   - DeploymentRuntimeConfig: {{ include "provider-tailscale.runtimeConfigName" . }}
   - ProviderConfig: {{ include "provider-tailscale.providerConfigName" . }}
-{{- if .Values.imageConfig.enabled }}
-  - ImageConfig (GHCR): {{ include "provider-tailscale.imageConfigName" . }}
-{{- end }}
-{{- if .Values.localRegistryRewrite.enabled }}
-  - ImageConfig (Local): {{ include "provider-tailscale.localRegistryRewriteName" . }}
-{{- end }}
 {{- if .Values.secret.create }}
   - Secret: {{ include "provider-tailscale.secretName" . }} (namespace: {{ .Values.secret.namespace }})
 {{- end }}
@@ -78,9 +72,7 @@ Namespace: {{ .Release.Namespace }}
    kubectl describe key example-key
 
 📚 Documentation:
-  - Chart: https://github.com/millstonehq/mill/tree/main/providers/provider-upjet-tailscale/charts/provider-tailscale
-  - Provider: https://github.com/millstonehq/mill/tree/main/providers/provider-upjet-tailscale
-  - Examples: https://github.com/millstonehq/mill/tree/main/providers/provider-upjet-tailscale/examples
+  - Provider: https://github.com/millstonehq/provider-upjet-tailscale
 
 💡 Troubleshooting:
   - If Provider is not HEALTHY, check logs for authentication errors
@@ -89,4 +81,4 @@ Namespace: {{ .Release.Namespace }}
   - Check network connectivity to Tailscale API
 
 For issues and support:
-  https://github.com/millstonehq/mill/issues
+  https://github.com/millstonehq/provider-upjet-tailscale/issues
