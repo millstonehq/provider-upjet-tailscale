@@ -1,0 +1,95 @@
+# Default values for provider-tailscale
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Provider configuration
+provider:
+  # Provider package image
+  package:
+    # Container registry and repository
+    repository: ghcr.io/millstonehq/provider-tailscale
+    # Image tag (overrides chart appVersion)
+    tag: ""  # defaults to chart appVersion
+    # Image pull policy
+    pullPolicy: IfNotPresent
+
+  # Runtime configuration for the provider controller
+  runtimeConfig:
+    # Controller deployment name
+    name: provider-tailscale-config
+
+    # Container arguments
+    args:
+      # Enable debug logging
+      debug: false
+      # Poll interval for reconciliation
+      poll: "1m"
+      # Maximum reconciliation rate
+      maxReconcileRate: 10
+      # Enable management policies feature
+      enableManagementPolicies: true
+
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+    # Security context for the controller container
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65532
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+    # Pod security context
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65532
+      fsGroup: 65532
+
+# ProviderConfig configuration
+providerConfig:
+  # Name of the ProviderConfig (typically "default")
+  name: default
+  
+  # Secret reference for Tailscale credentials
+  secretRef:
+    name: tailscale-creds
+    namespace: crossplane-system
+    key: api_key
+
+# Secret configuration for Tailscale credentials
+secret:
+  # Create the secret (set to false if using external secret management)
+  create: true
+  
+  # Secret name
+  name: tailscale-creds
+  
+  # Namespace where the secret will be created
+  namespace: crossplane-system
+  
+  # Tailscale API key value
+  # Leave empty if using external secret management or ArgoCD Vault Plugin
+  apiKey: ""
+
+# Sync wave for ArgoCD (controls deployment order)
+syncWave:
+  secret: "-2"
+  provider: "-1"
+  providerConfig: "0"
+
+# Additional labels to apply to all resources
+additionalLabels: {}
+  # environment: production
+  # team: platform
+
+# Additional annotations to apply to all resources
+additionalAnnotations: {}
+  # example.com/annotation: value

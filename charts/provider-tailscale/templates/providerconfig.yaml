@@ -1,0 +1,15 @@
+apiVersion: tailscale.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: {{ include "provider-tailscale.providerConfigName" . }}
+  labels:
+    {{- include "provider-tailscale.labels" . | nindent 4 }}
+  annotations:
+    {{- include "provider-tailscale.annotations" (dict "root" . "syncWave" .Values.syncWave.providerConfig) | nindent 4 }}
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: {{ .Values.providerConfig.secretRef.name }}
+      namespace: {{ .Values.providerConfig.secretRef.namespace }}
+      key: {{ .Values.providerConfig.secretRef.key }}

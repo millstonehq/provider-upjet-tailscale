@@ -1,0 +1,92 @@
+🎉 Crossplane Provider Tailscale has been installed!
+
+Chart Version: {{ .Chart.Version }}
+App Version: {{ .Chart.AppVersion }}
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+📦 Installed Resources:
+  - Provider: {{ include "provider-tailscale.fullname" . }}
+  - DeploymentRuntimeConfig: {{ include "provider-tailscale.runtimeConfigName" . }}
+  - ProviderConfig: {{ include "provider-tailscale.providerConfigName" . }}
+{{- if .Values.imageConfig.enabled }}
+  - ImageConfig (GHCR): {{ include "provider-tailscale.imageConfigName" . }}
+{{- end }}
+{{- if .Values.localRegistryRewrite.enabled }}
+  - ImageConfig (Local): {{ include "provider-tailscale.localRegistryRewriteName" . }}
+{{- end }}
+{{- if .Values.secret.create }}
+  - Secret: {{ include "provider-tailscale.secretName" . }} (namespace: {{ .Values.secret.namespace }})
+{{- end }}
+
+🔍 Verify Installation:
+
+1. Check Provider status:
+   kubectl get providers {{ include "provider-tailscale.fullname" . }}
+
+   Expected output:
+   NAME                   INSTALLED   HEALTHY   PACKAGE
+   {{ include "provider-tailscale.fullname" . }}     True        True      {{ include "provider-tailscale.image" . }}
+
+2. Check Provider pod:
+   kubectl get pods -n {{ .Values.secret.namespace }} -l pkg.crossplane.io/provider={{ include "provider-tailscale.fullname" . }}
+
+3. View Provider logs:
+   kubectl logs -n {{ .Values.secret.namespace }} -l pkg.crossplane.io/provider={{ include "provider-tailscale.fullname" . }} --tail=50
+
+4. Verify CRDs are installed:
+   kubectl get crds | grep tailscale
+
+   Expected CRDs:
+   - acls.acl.tailscale.upbound.io
+   - authorizations.device.tailscale.upbound.io
+   - keys.tailnetkey.tailscale.upbound.io
+   - nameservers.dns.tailscale.upbound.io
+   - providerconfigs.tailscale.upbound.io
+   - tags.device.tailscale.upbound.io
+
+5. Check ProviderConfig:
+   kubectl get providerconfig {{ include "provider-tailscale.providerConfigName" . }} -o yaml
+
+🚀 Next Steps:
+
+1. Create Tailscale resources using the provider:
+
+   # Example: Create an auth key
+   cat <<EOF | kubectl apply -f -
+   apiVersion: tailnetkey.tailscale.upbound.io/v1alpha1
+   kind: Key
+   metadata:
+     name: example-key
+   spec:
+     forProvider:
+       reusable: true
+       preauthorized: true
+       tags:
+         - "tag:example"
+     writeConnectionSecretToRef:
+       name: tailscale-example-key
+       namespace: default
+     providerConfigRef:
+       name: {{ include "provider-tailscale.providerConfigName" . }}
+   EOF
+
+2. View created resources:
+   kubectl get keys,acls,nameservers,tags,authorizations
+
+3. Check resource status:
+   kubectl describe key example-key
+
+📚 Documentation:
+  - Chart: https://github.com/millstonehq/mill/tree/main/providers/provider-upjet-tailscale/charts/provider-tailscale
+  - Provider: https://github.com/millstonehq/mill/tree/main/providers/provider-upjet-tailscale
+  - Examples: https://github.com/millstonehq/mill/tree/main/providers/provider-upjet-tailscale/examples
+
+💡 Troubleshooting:
+  - If Provider is not HEALTHY, check logs for authentication errors
+  - Ensure Tailscale API key has required permissions
+  - Verify secret exists and contains valid credentials
+  - Check network connectivity to Tailscale API
+
+For issues and support:
+  https://github.com/millstonehq/mill/issues
