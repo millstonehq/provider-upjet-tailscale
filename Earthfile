@@ -6,25 +6,10 @@ PROJECT millstonehq/mill
 
 builder-base:
     ARG BUILDPLATFORM
-    FROM --platform=$BUILDPLATFORM ghcr.io/millstonehq/tofu:builder
+    # Use pre-built crossplane:builder with Go, OpenTofu, make, and pre-compiled tools
+    # (goimports, controller-gen, angryjet, crossplane CLI)
+    FROM --platform=$BUILDPLATFORM ghcr.io/millstonehq/crossplane:builder
 
-    USER root
-    # Install Go and tools for building the provider
-    RUN apk add go git make
-
-    # Install goimports, controller-gen, and angryjet to /usr/local/bin (in PATH)
-    RUN go install golang.org/x/tools/cmd/goimports@latest && \
-        go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest && \
-        go install github.com/crossplane/crossplane-tools/cmd/angryjet@latest && \
-        mv /root/go/bin/goimports /usr/local/bin/ && \
-        mv /root/go/bin/controller-gen /usr/local/bin/ && \
-        mv /root/go/bin/angryjet /usr/local/bin/
-
-    # Install crossplane CLI for building xpkg packages
-    RUN curl -sL "https://releases.crossplane.io/stable/current/bin/linux_amd64/crank" -o /usr/local/bin/crossplane && \
-        chmod +x /usr/local/bin/crossplane
-
-    USER nonroot
     WORKDIR /app
 
 deps:
