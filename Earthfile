@@ -140,10 +140,14 @@ image:
     ARG TARGETPLATFORM
     ARG TARGETOS
     ARG TARGETARCH
-    FROM --platform=$TARGETPLATFORM ghcr.io/millstonehq/tofu:runtime
+    # Allow manual override for cross-compilation (used by controller-tarball)
+    ARG IMAGE_OS=${TARGETOS:-linux}
+    ARG IMAGE_ARCH=${TARGETARCH:-amd64}
+    ARG IMAGE_PLATFORM=${TARGETPLATFORM:-linux/${IMAGE_ARCH}}
+    FROM --platform=$IMAGE_PLATFORM ghcr.io/millstonehq/tofu:runtime
 
     # Build the right binary for this platform, but compile on native arch (no QEMU)
-    COPY (+build/provider --GOOS=$TARGETOS --GOARCH=$TARGETARCH) /usr/local/bin/provider
+    COPY (+build/provider --GOOS=$IMAGE_OS --GOARCH=$IMAGE_ARCH) /usr/local/bin/provider
 
     ENTRYPOINT ["/usr/local/bin/provider"]
 
@@ -153,15 +157,16 @@ image:
     SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
 
 controller-tarball:
-    # Build controller tarball for ARM64 (current cluster architecture)
+    # Build controller tarball for ARM64 using cross-compilation (no QEMU!)
+    # Builds natively on amd64, cross-compiles Go binary for arm64
     FROM alpine:latest
     RUN apk add docker-cli
 
-    # Build ARM64 image first
-    BUILD --platform=linux/arm64 +image
+    # Build ARM64 image using cross-compilation (IMAGE_OS/IMAGE_ARCH instead of --platform)
+    BUILD +image --IMAGE_OS=linux --IMAGE_ARCH=arm64
 
     # Load the ARM64 image and save it as tarball
-    WITH DOCKER --load=ghcr.io/millstonehq/provider-tailscale:latest=+image --platform=linux/arm64
+    WITH DOCKER --load=ghcr.io/millstonehq/provider-tailscale:latest=(+image --IMAGE_OS=linux --IMAGE_ARCH=arm64)
         RUN docker save ghcr.io/millstonehq/provider-tailscale:latest -o /tmp/controller.tar
     END
 
@@ -204,7 +209,7 @@ push:
     RUN --secret GITHUB_TOKEN \
         echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 
-    USER nonroot
+    # Push as root (docker credentials are in /root/.docker/config.json)
     RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
 
 package-build:
