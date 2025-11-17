@@ -31,6 +31,7 @@ jobs:
         with:
           earthly-target: '+test-all'
           push: 'false'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build, Test and Publish (Main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -38,6 +39,7 @@ jobs:
         with:
           earthly-target: '+push'
           push: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Summary (PR)
         if: success() && github.event_name == 'pull_request'

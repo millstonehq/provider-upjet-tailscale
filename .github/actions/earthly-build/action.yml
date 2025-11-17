@@ -13,6 +13,9 @@ inputs:
     description: 'Directory containing the Earthfile (defaults to providers/provider-upjet-tailscale in mill, . in FOSS)'
     required: false
     default: '.'
+  github-token:
+    description: 'GitHub token for authenticating to GHCR'
+    required: true
 
 runs:
   using: composite
@@ -37,6 +40,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         FORCE_COLOR: 1
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         PUSH_FLAG=""
         CACHE_FLAGS="--remote-cache=ghcr.io/millstonehq/cache:provider-upjet-tailscale --max-remote-cache"
@@ -45,4 +49,4 @@ runs:
           PUSH_FLAG="--push"
         fi
 
-        earthly --ci -P $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
+        earthly --ci -P --secret GITHUB_TOKEN $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
