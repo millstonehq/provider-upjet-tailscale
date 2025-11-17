@@ -44,3 +44,8 @@ package/crds/
 
 # Dependency directories
 vendor/
+
+# Helm
+*.tgz
+charts/**/charts/
+charts/**/*.lock

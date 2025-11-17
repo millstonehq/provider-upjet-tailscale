@@ -1,0 +1,28 @@
+apiVersion: v2
+name: provider-tailscale
+description: A Crossplane provider for managing Tailscale infrastructure declaratively
+type: application
+
+# Chart version - update this when making changes to the chart
+version: 0.1.0
+
+# Application version - matches the provider version
+appVersion: "v0.1.0"
+
+maintainers:
+  - name: Millstone Services LLC
+    url: https://github.com/millstonehq/provider-upjet-tailscale
+
+home: https://github.com/millstonehq/provider-upjet-tailscale/tree/main/providers/provider-upjet-tailscale
+sources:
+  - https://github.com/millstonehq/provider-upjet-tailscale
+
+keywords:
+  - crossplane
+  - tailscale
+  - provider
+  - infrastructure
+  - gitops
+
+annotations:
+  category: Infrastructure
