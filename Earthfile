@@ -187,19 +187,23 @@ push-images:
 push:
     # Push xpkg package with embedded ARM64 controller runtime to GHCR
     # Uses crossplane CLI to properly push OCI artifacts with embedded images
-    # Run with: earthly --push +push
-    # Note: Requires docker login to ghcr.io (workflow does this)
+    # Run with: earthly --push +push --GITHUB_TOKEN=<token>
     FROM +builder-base
 
     ARG VERSION=v0.1.0
     ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
+    ARG GITHUB_USER=millstonehq
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
 
     # Use crossplane CLI to push xpkg with embedded runtime artifacts
-    # crossplane CLI uses docker credentials inherited from workflow
     USER root
     RUN apk add docker-cli
+
+    # Authenticate to GHCR using GitHub token passed as secret
+    RUN --secret GITHUB_TOKEN \
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
+
     USER nonroot
     RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
 
