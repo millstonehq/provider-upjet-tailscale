@@ -172,9 +172,9 @@ controller-tarball:
 
     SAVE ARTIFACT /tmp/controller.tar controller.tar
 
-push-images:
-    # Push multi-arch controller images to GHCR
-    # Run with: earthly --push +push-images
+push-runtime:
+    # Push multi-arch controller runtime images to GHCR
+    # Run with: earthly --push +push-runtime
     # Note: Requires docker login to ghcr.io (workflow does this)
     ARG VERSION=v0.1.0
     FROM alpine:latest
@@ -190,9 +190,15 @@ push-images:
         ghcr.io/millstonehq/provider-tailscale:${VERSION}
 
 push:
-    # Push xpkg package with embedded ARM64 controller runtime to GHCR
-    # Uses crossplane CLI to properly push OCI artifacts with embedded images
-    # Run with: earthly --push +push --GITHUB_TOKEN=<token>
+    # Push both xpkg package and multi-arch runtime images to GHCR
+    # Run with: earthly --push +push
+    BUILD +push-package
+    BUILD +push-runtime
+
+push-package:
+    # Push xpkg package to GHCR (references external runtime images)
+    # Uses crossplane CLI to properly push OCI artifacts
+    # Run with: earthly --push +push-package
     FROM +builder-base
 
     ARG VERSION=v0.1.0
@@ -216,7 +222,7 @@ package-build:
     FROM +generate
 
     # Build xpkg package (references external multi-arch runtime images)
-    # Controller images are published separately via +push-images
+    # Controller images are published separately via +push-runtime
     RUN crossplane xpkg build \
         --package-root=package \
         -o package.xpkg

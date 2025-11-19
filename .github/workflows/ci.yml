@@ -37,7 +37,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: ./.github/actions/earthly-build
         with:
-          earthly-target: '+push +push-images'
+          earthly-target: '+push'
           push: 'true'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -54,8 +54,9 @@ jobs:
         run: |
           echo "✓ Successfully published provider-upjet-tailscale"
           echo ""
-          echo "Published package:"
-          echo "  - ghcr.io/millstonehq/provider-tailscale:latest"
+          echo "Published artifacts:"
+          echo "  - xpkg package: ghcr.io/millstonehq/provider-tailscale:latest"
+          echo "  - runtime images: ghcr.io/millstonehq/provider-tailscale:latest (amd64 + arm64)"
           echo ""
           echo "Usage:"
           echo "  kubectl apply -f - <<EOF"
