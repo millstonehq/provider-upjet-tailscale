@@ -49,3 +49,7 @@ vendor/
 *.tgz
 charts/**/charts/
 charts/**/*.lock
+
+# Earthly
+
+.secret

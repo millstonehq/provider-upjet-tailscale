@@ -10,6 +10,13 @@ builder-base:
     # (goimports, controller-gen, angryjet, crossplane CLI)
     FROM --platform=$BUILDPLATFORM ghcr.io/millstonehq/crossplane:builder
 
+    # Install Upbound up CLI for multi-arch xpkg push support
+    USER root
+    RUN curl -sL "https://cli.upbound.io" | sh && \
+        mv up /usr/local/bin/up && \
+        up version
+    USER nonroot
+
     WORKDIR /app
 
 deps:
@@ -152,71 +159,79 @@ image:
     ENTRYPOINT ["/usr/local/bin/provider"]
 
     ARG VERSION=v0.1.0
-    # Save image for each platform
-    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
-    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
+    ARG IMAGE_SUFFIX=""
+    # Save image for each platform with optional suffix (e.g. -runtime, -xpkg)
+    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale${IMAGE_SUFFIX}:${VERSION}
+    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale${IMAGE_SUFFIX}:latest
 
-controller-tarball:
-    # Build controller tarball for ARM64 using cross-compilation (no QEMU!)
-    # Builds natively on amd64, cross-compiles Go binary for arm64
-    FROM alpine:latest
-    RUN apk add docker-cli
-
-    # Build ARM64 image using cross-compilation (IMAGE_OS/IMAGE_ARCH instead of --platform)
-    BUILD +image --IMAGE_OS=linux --IMAGE_ARCH=arm64
-
-    # Load the ARM64 image and save it as tarball
-    WITH DOCKER --load=ghcr.io/millstonehq/provider-tailscale:latest=(+image --IMAGE_OS=linux --IMAGE_ARCH=arm64)
-        RUN docker save ghcr.io/millstonehq/provider-tailscale:latest -o /tmp/controller.tar
-    END
-
-    SAVE ARTIFACT /tmp/controller.tar controller.tar
 
 push-runtime:
-    # Push multi-arch controller runtime images to GHCR
+    # Push multi-arch controller runtime images to GHCR (-runtime tag)
+    # This will be merged with xpkg package later to create final multi-manifest artifact
     # Run with: earthly --push +push-runtime
-    # Note: Requires docker login to ghcr.io (workflow does this)
     ARG VERSION=v0.1.0
-    FROM alpine:latest
 
-    RUN apk add docker-cli
-
-    # Build and push both amd64 and arm64 images
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
-
-    # Create and push multi-arch manifest
-    RUN docker buildx imagetools create -t ghcr.io/millstonehq/provider-tailscale:${VERSION} \
-        -t ghcr.io/millstonehq/provider-tailscale:latest \
-        ghcr.io/millstonehq/provider-tailscale:${VERSION}
+    # Build and push both amd64 and arm64 images to -runtime tag
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION --IMAGE_SUFFIX=-runtime
 
 push:
-    # Push both xpkg package and multi-arch runtime images to GHCR
+    # Push complete multi-manifest package to GHCR
+    # Creates single OCI artifact with 3 manifests (amd64 runtime, arm64 runtime, xpkg package)
     # Run with: earthly --push +push
-    BUILD +push-package
     BUILD +push-runtime
+    BUILD +push-package
+    BUILD +merge-manifests
 
 push-package:
-    # Push xpkg package to GHCR (references external runtime images)
-    # Uses crossplane CLI to properly push OCI artifacts
-    # Run with: earthly --push +push-package
+    # Push xpkg package to GHCR (-xpkg tag)
+    # This will be merged with runtime images later to create final multi-manifest artifact
+    # Run with: earthly --push +push-package (requires -P for WITH DOCKER)
     FROM +builder-base
-
-    ARG VERSION=v0.1.0
-    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
-    ARG GITHUB_USER=millstonehq
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
 
-    # Use crossplane CLI to push xpkg with embedded runtime artifacts
+    # Install docker before WITH DOCKER (prevents auto-install attempt)
     USER root
-    RUN apk add docker-cli
+    RUN apk add docker docker-cli-buildx
 
-    # Authenticate to GHCR using GitHub token passed as secret
-    RUN --secret GITHUB_TOKEN \
-        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
+    # Use WITH DOCKER to access docker daemon for authentication
+    # Note: WITH DOCKER only allows a single RUN command
+    ARG VERSION=v0.1.0
+    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale-xpkg:latest
+    ARG GITHUB_USER=millstonehq
+    WITH DOCKER
+        RUN --secret GITHUB_TOKEN \
+            mkdir -p /root/.docker && \
+            auth=$(printf '%s:%s' "$GITHUB_USER" "$GITHUB_TOKEN" | base64 | tr -d '\n') && \
+            printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth" > /root/.docker/config.json && \
+            up xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
+    END
 
-    # Push as root (docker credentials are in /root/.docker/config.json)
-    RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
+merge-manifests:
+    # Merge runtime images (amd64+arm64) and xpkg package into single multi-manifest artifact
+    # Uses docker buildx imagetools to create combined manifest list
+    # Run with: earthly --push +merge-manifests (after +push-runtime and +push-package)
+    FROM ghcr.io/millstonehq/base:builder
+
+    # Install docker before WITH DOCKER (prevents auto-install attempt)
+    USER root
+    RUN apk add docker docker-cli-buildx
+
+    # Use WITH DOCKER to get access to Docker daemon for buildx imagetools
+    # Note: WITH DOCKER only allows a single RUN command
+    ARG VERSION=v0.1.0
+    ARG GITHUB_USER=millstonehq
+    WITH DOCKER
+        RUN --secret GITHUB_TOKEN \
+            mkdir -p /root/.docker && \
+            auth=$(printf '%s:%s' "$GITHUB_USER" "$GITHUB_TOKEN" | base64 | tr -d '\n') && \
+            printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth" > /root/.docker/config.json && \
+            docker buildx imagetools create \
+                --tag ghcr.io/millstonehq/provider-tailscale:latest \
+                --tag ghcr.io/millstonehq/provider-tailscale:$VERSION \
+                ghcr.io/millstonehq/provider-tailscale-runtime:latest \
+                ghcr.io/millstonehq/provider-tailscale-xpkg:latest
+    END
 
 package-build:
     FROM +generate
