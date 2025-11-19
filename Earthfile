@@ -159,11 +159,15 @@ image:
 push-images:
     # Push multi-arch controller images to GHCR
     # Run with: earthly --push +push-images
-    # Note: Requires docker login to ghcr.io (workflow does this)
     ARG VERSION=v0.1.0
+    ARG GITHUB_USER=millstonehq
     FROM alpine:latest
 
     RUN apk add docker-cli docker-cli-buildx
+
+    # Authenticate to GHCR using GitHub token passed as secret
+    RUN --secret GITHUB_TOKEN \
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 
     # Build and push both amd64 and arm64 images
     BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
