@@ -215,13 +215,10 @@ push:
 package-build:
     FROM +generate
 
-    # Get ARM64 controller image tarball
-    COPY +controller-tarball/controller.tar /tmp/controller.tar
-
-    # Build xpkg package with embedded controller runtime tarball
+    # Build xpkg package (references external multi-arch runtime images)
+    # Controller images are published separately via +push-images
     RUN crossplane xpkg build \
         --package-root=package \
-        --embed-runtime-image-tarball=/tmp/controller.tar \
         -o package.xpkg
 
     SAVE ARTIFACT package.xpkg

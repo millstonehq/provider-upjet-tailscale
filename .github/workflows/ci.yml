@@ -37,7 +37,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: ./.github/actions/earthly-build
         with:
-          earthly-target: '+push'
+          earthly-target: '+push +push-images'
           push: 'true'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
