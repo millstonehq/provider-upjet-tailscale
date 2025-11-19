@@ -174,9 +174,14 @@ push-images:
         ghcr.io/millstonehq/provider-tailscale:${VERSION}
 
 push:
-    # Push xpkg package with embedded ARM64 controller runtime to GHCR
-    # Uses crossplane CLI to properly push OCI artifacts with embedded images
+    # Push multi-arch runtime images first, then xpkg package with embedded runtime
+    # Order matters: +push-images must complete before +package-build (which embeds from :latest)
     # Run with: earthly --push +push --GITHUB_TOKEN=<token>
+
+    # Step 1: Push multi-arch runtime images to :latest
+    BUILD +push-images
+
+    # Step 2: Build and push xpkg with embedded runtime
     FROM +builder-base
 
     ARG VERSION=v0.1.0
