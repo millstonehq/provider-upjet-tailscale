@@ -163,7 +163,7 @@ push-images:
     ARG VERSION=v0.1.0
     FROM alpine:latest
 
-    RUN apk add docker-cli
+    RUN apk add docker-cli docker-cli-buildx
 
     # Build and push both amd64 and arm64 images
     BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
