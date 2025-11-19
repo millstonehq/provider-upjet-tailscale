@@ -204,21 +204,11 @@ push:
 package-build:
     FROM +generate
 
-    # Build xpkg package with embedded multi-arch controller runtime
-    # The :latest tag contains multi-arch images (amd64 + arm64) from +push-images
-    # crossplane xpkg build will pull all architectures and embed them properly
+    # Build metadata-only xpkg (no embedded runtime)
+    # Runtime image pulled directly from ghcr.io/millstonehq/provider-tailscale:latest
+    # Kubernetes automatically selects correct arch (amd64/arm64) from multi-arch manifest
     RUN crossplane xpkg build \
         --package-root=package \
-        --embed-runtime-image=ghcr.io/millstonehq/provider-tailscale:latest \
         -o package.xpkg
 
     SAVE ARTIFACT package.xpkg
-
-package-local:
-    ARG IMAGE_NAME=provider-tailscale:latest
-
-    # Load the xpkg tarball into docker
-    LOCALLY
-    COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
-    RUN LOADED_ID=$(docker load -i /tmp/provider-tailscale-package.xpkg 2>&1 | grep -oP 'Loaded image ID: \K.*') && \
-        docker tag $LOADED_ID $IMAGE_NAME
