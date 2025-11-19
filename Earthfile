@@ -10,13 +10,6 @@ builder-base:
     # (goimports, controller-gen, angryjet, crossplane CLI)
     FROM --platform=$BUILDPLATFORM ghcr.io/millstonehq/crossplane:builder
 
-    # Install Upbound up CLI for multi-arch xpkg push support
-    USER root
-    RUN curl -sL "https://cli.upbound.io" | sh && \
-        mv up /usr/local/bin/up && \
-        up version
-    USER nonroot
-
     WORKDIR /app
 
 deps:
@@ -159,59 +152,76 @@ image:
     ENTRYPOINT ["/usr/local/bin/provider"]
 
     ARG VERSION=v0.1.0
-    ARG IMAGE_SUFFIX=""
-    # Save image for each platform with optional suffix (e.g. -runtime, -xpkg)
-    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale${IMAGE_SUFFIX}:${VERSION}
-    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale${IMAGE_SUFFIX}:latest
+    # Save image for each platform
+    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
+    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
 
+controller-tarball:
+    # Build controller tarball for ARM64 using cross-compilation (no QEMU!)
+    # Builds natively on amd64, cross-compiles Go binary for arm64
+    FROM alpine:latest
+    RUN apk add docker-cli
 
-push-runtime:
-    # Push multi-arch controller runtime images to GHCR (:latest tag)
-    # Run with: earthly --push +push-runtime
+    # Build ARM64 image using cross-compilation (IMAGE_OS/IMAGE_ARCH instead of --platform)
+    BUILD +image --IMAGE_OS=linux --IMAGE_ARCH=arm64
+
+    # Load the ARM64 image and save it as tarball
+    WITH DOCKER --load=ghcr.io/millstonehq/provider-tailscale:latest=(+image --IMAGE_OS=linux --IMAGE_ARCH=arm64)
+        RUN docker save ghcr.io/millstonehq/provider-tailscale:latest -o /tmp/controller.tar
+    END
+
+    SAVE ARTIFACT /tmp/controller.tar controller.tar
+
+push-images:
+    # Push multi-arch controller images to GHCR
+    # Run with: earthly --push +push-images
+    # Note: Requires docker login to ghcr.io (workflow does this)
     ARG VERSION=v0.1.0
+    FROM alpine:latest
 
-    # Build and push both amd64 and arm64 images to :latest tag
+    RUN apk add docker-cli
+
+    # Build and push both amd64 and arm64 images
     BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
 
-push:
-    # Push both runtime images and xpkg package to GHCR (separate tags)
-    # Runtime: ghcr.io/millstonehq/provider-tailscale:latest (multi-arch amd64+arm64)
-    # Package: ghcr.io/millstonehq/provider-tailscale:xpkg (xpkg)
-    # Run with: earthly --push +push
-    BUILD +push-runtime
-    BUILD +push-package
+    # Create and push multi-arch manifest
+    RUN docker buildx imagetools create -t ghcr.io/millstonehq/provider-tailscale:${VERSION} \
+        -t ghcr.io/millstonehq/provider-tailscale:latest \
+        ghcr.io/millstonehq/provider-tailscale:${VERSION}
 
-push-package:
-    # Push xpkg package to GHCR (:xpkg tag)
-    # Run with: earthly --push +push-package (requires -P for WITH DOCKER)
+push:
+    # Push xpkg package with embedded ARM64 controller runtime to GHCR
+    # Uses crossplane CLI to properly push OCI artifacts with embedded images
+    # Run with: earthly --push +push --GITHUB_TOKEN=<token>
     FROM +builder-base
+
+    ARG VERSION=v0.1.0
+    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
+    ARG GITHUB_USER=millstonehq
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
 
-    # Install docker before WITH DOCKER (prevents auto-install attempt)
+    # Use crossplane CLI to push xpkg with embedded runtime artifacts
     USER root
-    RUN apk add docker docker-cli-buildx
+    RUN apk add docker-cli
 
-    # Use WITH DOCKER to access docker daemon for authentication
-    # Note: WITH DOCKER only allows a single RUN command
-    ARG VERSION=v0.1.0
-    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:xpkg
-    ARG GITHUB_USER=millstonehq
-    WITH DOCKER
-        RUN --secret GITHUB_TOKEN \
-            mkdir -p /root/.docker && \
-            auth=$(printf '%s:%s' "$GITHUB_USER" "$GITHUB_TOKEN" | base64 | tr -d '\n') && \
-            printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth" > /root/.docker/config.json && \
-            up xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
-    END
+    # Authenticate to GHCR using GitHub token passed as secret
+    RUN --secret GITHUB_TOKEN \
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
+
+    # Push as root (docker credentials are in /root/.docker/config.json)
+    RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
 
 package-build:
     FROM +generate
 
-    # Build xpkg package (references external multi-arch runtime images)
-    # Controller images are published separately via +push-runtime
+    # Get ARM64 controller image tarball
+    COPY +controller-tarball/controller.tar /tmp/controller.tar
+
+    # Build xpkg package with embedded controller runtime tarball
     RUN crossplane xpkg build \
         --package-root=package \
+        --embed-runtime-image-tarball=/tmp/controller.tar \
         -o package.xpkg
 
     SAVE ARTIFACT package.xpkg

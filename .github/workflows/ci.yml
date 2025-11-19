@@ -54,9 +54,8 @@ jobs:
         run: |
           echo "✓ Successfully published provider-upjet-tailscale"
           echo ""
-          echo "Published artifacts:"
-          echo "  - xpkg package: ghcr.io/millstonehq/provider-tailscale:latest"
-          echo "  - runtime images: ghcr.io/millstonehq/provider-tailscale:latest (amd64 + arm64)"
+          echo "Published package:"
+          echo "  - ghcr.io/millstonehq/provider-tailscale:latest"
           echo ""
           echo "Usage:"
           echo "  kubectl apply -f - <<EOF"
