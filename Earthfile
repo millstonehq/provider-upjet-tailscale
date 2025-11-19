@@ -174,14 +174,14 @@ push-images:
         ghcr.io/millstonehq/provider-tailscale:${VERSION}
 
 push:
-    # Push multi-arch runtime images first, then xpkg package with embedded runtime
-    # Order matters: +push-images must complete before +package-build (which embeds from :latest)
+    # Push multi-arch runtime images and metadata-only xpkg package
+    # Runtime images used by package.yaml controller.image reference
     # Run with: earthly --push +push --GITHUB_TOKEN=<token>
 
     # Step 1: Push multi-arch runtime images to :latest
     BUILD +push-images
 
-    # Step 2: Build and push xpkg with embedded runtime
+    # Step 2: Build and push metadata-only xpkg
     FROM +builder-base
 
     ARG VERSION=v0.1.0
@@ -190,7 +190,7 @@ push:
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
 
-    # Use crossplane CLI to push xpkg with embedded runtime artifacts
+    # Use crossplane CLI to push xpkg
     USER root
     RUN apk add docker-cli
 
