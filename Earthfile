@@ -152,45 +152,64 @@ image:
     ENTRYPOINT ["/usr/local/bin/provider"]
 
     ARG VERSION=v0.1.0
-    # Save image for each platform
-    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
-    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
+    # Save arch-specific images (TARGETARCH is amd64 or arm64)
+    # These will be combined into multi-arch manifest by +push-images
+    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:${VERSION}-${TARGETARCH}
+    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:latest-${TARGETARCH}
 
 push-images:
-    # Push multi-arch controller images to GHCR
+    # Build and push multi-arch controller images to GHCR
     # Run with: earthly --push +push-images
     ARG VERSION=v0.1.0
-    ARG GITHUB_USER=millstonehq
-    FROM alpine:latest
 
+    # Build both arch images (SAVE IMAGE --push in +image target handles pushing)
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
+
+    # Create completion marker for dependency chain
+    FROM +builder-base
+    RUN echo "Images pushed at $(date)" > /tmp/push-complete
+    SAVE ARTIFACT /tmp/push-complete push-complete
+
+create-manifest:
+    # Create multi-arch manifest from pushed arch-specific images
+    # Must be called AFTER +push-images has pushed both architectures
+    ARG VERSION=v0.1.0
+    ARG GITHUB_USER=millstonehq
+    FROM +builder-base
+
+    # Wait for push-images to complete by depending on its artifact
+    COPY +push-images/push-complete /tmp/push-complete
+
+    USER root
     RUN apk add docker-cli docker-cli-buildx
 
-    # Authenticate to GHCR using GitHub token passed as secret
+    # Authenticate to GHCR
     RUN --secret GITHUB_TOKEN \
         echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 
-    # Build and push both amd64 and arm64 images
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
-
-    # Create and push multi-arch manifest
-    RUN docker buildx imagetools create -t ghcr.io/millstonehq/provider-tailscale:${VERSION} \
+    # Create multi-arch manifest
+    RUN docker buildx imagetools create \
+        -t ghcr.io/millstonehq/provider-tailscale:${VERSION} \
         -t ghcr.io/millstonehq/provider-tailscale:latest \
-        ghcr.io/millstonehq/provider-tailscale:${VERSION}
+        ghcr.io/millstonehq/provider-tailscale:${VERSION}-amd64 \
+        ghcr.io/millstonehq/provider-tailscale:${VERSION}-arm64
 
 push:
     # Push multi-arch runtime images and metadata-only xpkg package
     # Runtime images used by package.yaml controller.image reference
     # Run with: earthly --push +push --GITHUB_TOKEN=<token>
-
-    # Step 1: Push multi-arch runtime images to :latest
-    BUILD +push-images
-
-    # Step 2: Build and push metadata-only xpkg
-    FROM +builder-base
-
     ARG VERSION=v0.1.0
-    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
     ARG GITHUB_USER=millstonehq
+    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
+
+    # Step 1: Push arch-specific runtime images (amd64 and arm64)
+    BUILD +push-images --VERSION=$VERSION
+
+    # Step 2: Create multi-arch manifest from pushed arch-specific images
+    BUILD +create-manifest --VERSION=$VERSION --GITHUB_USER=$GITHUB_USER
+
+    # Step 3: Build and push metadata-only xpkg
+    FROM +builder-base
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
 
@@ -198,11 +217,11 @@ push:
     USER root
     RUN apk add docker-cli
 
-    # Authenticate to GHCR using GitHub token passed as secret
+    # Authenticate to GHCR
     RUN --secret GITHUB_TOKEN \
         echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 
-    # Push as root (docker credentials are in /root/.docker/config.json)
+    # Push xpkg
     RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
 
 package-build:
