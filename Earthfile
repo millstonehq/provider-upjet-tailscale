@@ -166,25 +166,23 @@ image:
 
 
 push-runtime:
-    # Push multi-arch controller runtime images to GHCR (-runtime tag)
-    # This will be merged with xpkg package later to create final multi-manifest artifact
+    # Push multi-arch controller runtime images to GHCR (:latest tag)
     # Run with: earthly --push +push-runtime
     ARG VERSION=v0.1.0
 
-    # Build and push both amd64 and arm64 images to -runtime tag
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION --IMAGE_SUFFIX=-runtime
+    # Build and push both amd64 and arm64 images to :latest tag
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
 
 push:
-    # Push complete multi-manifest package to GHCR
-    # Creates single OCI artifact with 3 manifests (amd64 runtime, arm64 runtime, xpkg package)
+    # Push both runtime images and xpkg package to GHCR (separate tags)
+    # Runtime: ghcr.io/millstonehq/provider-tailscale:latest (multi-arch amd64+arm64)
+    # Package: ghcr.io/millstonehq/provider-tailscale:xpkg (xpkg)
     # Run with: earthly --push +push
     BUILD +push-runtime
     BUILD +push-package
-    BUILD +merge-manifests
 
 push-package:
-    # Push xpkg package to GHCR (-xpkg tag)
-    # This will be merged with runtime images later to create final multi-manifest artifact
+    # Push xpkg package to GHCR (:xpkg tag)
     # Run with: earthly --push +push-package (requires -P for WITH DOCKER)
     FROM +builder-base
 
@@ -197,7 +195,7 @@ push-package:
     # Use WITH DOCKER to access docker daemon for authentication
     # Note: WITH DOCKER only allows a single RUN command
     ARG VERSION=v0.1.0
-    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale-xpkg:latest
+    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:xpkg
     ARG GITHUB_USER=millstonehq
     WITH DOCKER
         RUN --secret GITHUB_TOKEN \
@@ -205,32 +203,6 @@ push-package:
             auth=$(printf '%s:%s' "$GITHUB_USER" "$GITHUB_TOKEN" | base64 | tr -d '\n') && \
             printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth" > /root/.docker/config.json && \
             up xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
-    END
-
-merge-manifests:
-    # Merge runtime images (amd64+arm64) and xpkg package into single multi-manifest artifact
-    # Uses docker buildx imagetools to create combined manifest list
-    # Run with: earthly --push +merge-manifests (after +push-runtime and +push-package)
-    FROM ghcr.io/millstonehq/base:builder
-
-    # Install docker before WITH DOCKER (prevents auto-install attempt)
-    USER root
-    RUN apk add docker docker-cli-buildx
-
-    # Use WITH DOCKER to get access to Docker daemon for buildx imagetools
-    # Note: WITH DOCKER only allows a single RUN command
-    ARG VERSION=v0.1.0
-    ARG GITHUB_USER=millstonehq
-    WITH DOCKER
-        RUN --secret GITHUB_TOKEN \
-            mkdir -p /root/.docker && \
-            auth=$(printf '%s:%s' "$GITHUB_USER" "$GITHUB_TOKEN" | base64 | tr -d '\n') && \
-            printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth" > /root/.docker/config.json && \
-            docker buildx imagetools create \
-                --tag ghcr.io/millstonehq/provider-tailscale:latest \
-                --tag ghcr.io/millstonehq/provider-tailscale:$VERSION \
-                ghcr.io/millstonehq/provider-tailscale-runtime:latest \
-                ghcr.io/millstonehq/provider-tailscale-xpkg:latest
     END
 
 package-build:
