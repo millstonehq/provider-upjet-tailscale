@@ -156,22 +156,6 @@ image:
     SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
     SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
 
-controller-tarball:
-    # Build controller tarball for ARM64 using cross-compilation (no QEMU!)
-    # Builds natively on amd64, cross-compiles Go binary for arm64
-    FROM alpine:latest
-    RUN apk add docker-cli
-
-    # Build ARM64 image using cross-compilation (IMAGE_OS/IMAGE_ARCH instead of --platform)
-    BUILD +image --IMAGE_OS=linux --IMAGE_ARCH=arm64
-
-    # Load the ARM64 image and save it as tarball
-    WITH DOCKER --load=ghcr.io/millstonehq/provider-tailscale:latest=(+image --IMAGE_OS=linux --IMAGE_ARCH=arm64)
-        RUN docker save ghcr.io/millstonehq/provider-tailscale:latest -o /tmp/controller.tar
-    END
-
-    SAVE ARTIFACT /tmp/controller.tar controller.tar
-
 push-images:
     # Push multi-arch controller images to GHCR
     # Run with: earthly --push +push-images
@@ -215,13 +199,12 @@ push:
 package-build:
     FROM +generate
 
-    # Get ARM64 controller image tarball
-    COPY +controller-tarball/controller.tar /tmp/controller.tar
-
-    # Build xpkg package with embedded controller runtime tarball
+    # Build xpkg package with embedded multi-arch controller runtime
+    # The :latest tag contains multi-arch images (amd64 + arm64) from +push-images
+    # crossplane xpkg build will pull all architectures and embed them properly
     RUN crossplane xpkg build \
         --package-root=package \
-        --embed-runtime-image-tarball=/tmp/controller.tar \
+        --embed-runtime-image=ghcr.io/millstonehq/provider-tailscale:latest \
         -o package.xpkg
 
     SAVE ARTIFACT package.xpkg
