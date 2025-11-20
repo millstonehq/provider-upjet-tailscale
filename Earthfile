@@ -200,7 +200,7 @@ push:
     # Run with: earthly --push +push --GITHUB_TOKEN=<token>
     ARG VERSION=v0.1.0
     ARG GITHUB_USER=millstonehq
-    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
+    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:xpkg
 
     # Step 1: Push arch-specific runtime images (amd64 and arm64)
     BUILD +push-images --VERSION=$VERSION
