@@ -34,6 +34,9 @@ spec:
           {{- end }}
           containers:
             - name: package-runtime
+              {{- with .Values.provider.runtimeImage }}
+              image: {{ . }}
+              {{- end }}
               {{- with .Values.provider.runtimeConfig.args }}
               args:
                 {{- if .enableManagementPolicies }}
