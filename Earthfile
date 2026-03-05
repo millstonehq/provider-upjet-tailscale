@@ -214,7 +214,8 @@ push:
     RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $XPKG_IMAGE
 
     # Push controller runtime image to :latest (has tofu binary for Upjet)
-    BUILD --platform=linux/arm64 +image --VERSION=$VERSION
+    # Multi-arch: Earthly 0.8 creates a manifest list from multiple platforms
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
 
 package-build:
     FROM +generate
