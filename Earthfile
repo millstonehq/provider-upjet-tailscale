@@ -152,9 +152,9 @@ image:
     ENTRYPOINT ["/usr/local/bin/provider"]
 
     ARG VERSION=v0.1.0
-    # Save image for each platform
-    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
-    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:latest
+    # Push arch-specific images to GHCR (requires earthly --push)
+    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:${VERSION}
+    SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:latest
 
 controller-tarball:
     # Build controller tarball for ARM64 using cross-compilation (no QEMU!)
@@ -190,13 +190,14 @@ push-images:
         ghcr.io/millstonehq/provider-tailscale:${VERSION}
 
 push:
-    # Push xpkg package with embedded ARM64 controller runtime to GHCR
-    # Uses crossplane CLI to properly push OCI artifacts with embedded images
+    # Push xpkg package AND controller runtime image to GHCR
+    # xpkg goes to :xpkg tag (Crossplane package metadata + CRDs)
+    # Controller image goes to :latest tag (runtime with tofu binary)
     # Run with: earthly --push +push --GITHUB_TOKEN=<token>
     FROM +builder-base
 
     ARG VERSION=v0.1.0
-    ARG IMAGE_NAME=ghcr.io/millstonehq/provider-tailscale:latest
+    ARG XPKG_IMAGE=ghcr.io/millstonehq/provider-tailscale:xpkg
     ARG GITHUB_USER=millstonehq
 
     COPY +package-build/package.xpkg /tmp/provider-tailscale-package.xpkg
@@ -209,8 +210,11 @@ push:
     RUN --secret GITHUB_TOKEN \
         echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 
-    # Push as root (docker credentials are in /root/.docker/config.json)
-    RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $IMAGE_NAME
+    # Push xpkg to :xpkg tag (NOT :latest — that's reserved for the controller image)
+    RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $XPKG_IMAGE
+
+    # Push controller runtime image to :latest (has tofu binary for Upjet)
+    BUILD --platform=linux/arm64 +image --VERSION=$VERSION
 
 package-build:
     FROM +generate
