@@ -152,7 +152,26 @@ image:
     ENTRYPOINT ["/usr/local/bin/provider"]
 
     ARG VERSION=v0.1.0
-    # Push arch-specific images to GHCR (requires earthly --push)
+    # THIS TARGET DELIBERATELY DOES NOT PUSH. See +image-push.
+    #
+    # It has two consumers with incompatible needs: +push-images wants it built for BOTH
+    # platforms and published, while +controller-tarball wants ONE arm64 image to docker save.
+    # A `SAVE IMAGE --push` here belongs to whichever caller runs -- so `earthly --push
+    # +controller-tarball` published an arm64-only image to :latest and :${VERSION}, silently
+    # replacing the multi-arch manifest.
+    #
+    # That is how ghcr.io/millstonehq/provider-tailscale:latest became arm64-only while
+    # mgmt-prod-eu1-1 (Contabo, amd64) runs it, and why a hand-pushed :latest-amd64 tag exists
+    # as a workaround. A reusable builder must not decide what gets published.
+    SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
+
+image-push:
+    # THE ONLY TARGET THAT PUBLISHES. Build it via +push-images, never directly -- on its own it
+    # would publish a single-arch manifest for whatever platform happened to be current, which is
+    # the exact failure this split exists to prevent.
+    ARG VERSION=v0.1.0
+    FROM +image --VERSION=$VERSION
+
     SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:${VERSION}
     SAVE IMAGE --push ghcr.io/millstonehq/provider-tailscale:latest
 
@@ -173,21 +192,18 @@ controller-tarball:
     SAVE ARTIFACT /tmp/controller.tar controller.tar
 
 push-images:
-    # Push multi-arch controller images to GHCR
-    # Run with: earthly --push +push-images
-    # Note: Requires docker login to ghcr.io (workflow does this)
+    # Publish the multi-arch controller image. Run with: earthly --push +push-images
+    # Requires docker login to ghcr.io (the workflow does this).
+    #
+    # NO `docker buildx imagetools create` STEP. Earthly builds the multi-arch manifest itself
+    # from a multi-platform BUILD of a target that SAVE IMAGE --push. Proof: mill uses exactly
+    # this shape with no imagetools anywhere, and ghcr.io/millstonehq/mill:latest carries both
+    # amd64 and arm64. The previous imagetools call re-tagged :${VERSION} onto itself, which
+    # needed docker-cli and an alpine base to do nothing.
     ARG VERSION=v0.1.0
-    FROM alpine:latest
+    LOCALLY
 
-    RUN apk add docker-cli
-
-    # Build and push both amd64 and arm64 images
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
-
-    # Create and push multi-arch manifest
-    RUN docker buildx imagetools create -t ghcr.io/millstonehq/provider-tailscale:${VERSION} \
-        -t ghcr.io/millstonehq/provider-tailscale:latest \
-        ghcr.io/millstonehq/provider-tailscale:${VERSION}
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image-push --VERSION=$VERSION
 
 push:
     # Push xpkg package AND controller runtime image to GHCR
@@ -214,8 +230,10 @@ push:
     RUN crossplane xpkg push -f /tmp/provider-tailscale-package.xpkg $XPKG_IMAGE
 
     # Push controller runtime image to :latest (has tofu binary for Upjet)
-    # Multi-arch: Earthly 0.8 creates a manifest list from multiple platforms
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +image --VERSION=$VERSION
+    # Multi-arch: Earthly 0.8 creates a manifest list from multiple platforms.
+    # Targets +image-push, not +image -- +image is a non-publishing builder shared with
+    # +controller-tarball, and only +image-push carries SAVE IMAGE --push.
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image-push --VERSION=$VERSION
 
 package-build:
     FROM +generate
