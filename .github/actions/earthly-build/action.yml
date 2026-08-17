@@ -51,6 +51,14 @@ runs:
         ln -sf "$HOME/.local/bin/earth" "$HOME/.local/bin/earthly"
         export PATH="$HOME/.local/bin:$PATH"
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        # TLS OFF, BUT ONLY WHEN THERE IS A REMOTE BUILDKIT TO REACH. The shared buildkitds answer
+        # on in-cluster DNS, not the public internet, and earth otherwise demands a CA at
+        # ~/.earthly/certs -- failing by trying to start a LOCAL buildkitd via docker, which these
+        # runner pods deliberately have no daemon for. Guarded on the variable so a GitHub-hosted
+        # run, which uses a local buildkitd with its own generated certs, is left alone. The
+        # variable is set on every runner pod by arc-runner-set/values.yaml, so moving a workflow
+        # to self-hosted needs no change here beyond `runs-on:`.
+        if [ -n "${EARTH_BUILDKIT_HOST:-}" ]; then earthly config global.tls_enabled false; fi
         earthly --version
 
     - name: Build with Earthly
