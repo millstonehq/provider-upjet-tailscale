@@ -20,11 +20,26 @@ inputs:
 runs:
   using: composite
   steps:
+    # BOTH OF THESE NEED A LOCAL DOCKER DAEMON, AND A SELF-HOSTED RUNNER HAS NONE.
+    #
+    # arc-runner-set/values.yaml refuses containerMode: dind because "it would grant privileged
+    # execution to anything that can open a PR", so these pods have no /var/run/docker.sock. On
+    # 2026-08-16 that made setup-buildx fail in under a second with "failed to connect to the
+    # docker API", which then SKIPPED every later step including the build -- so the job reported
+    # a docker error for a build that never ran.
+    #
+    # They are also pointless against a remote builder even where docker exists: earth talks to a
+    # buildkitd on another machine, which has its own platform support, and QEMU registered on the
+    # runner does nothing for it. Guarded on EARTH_BUILDKIT_HOST, which every runner pod carries
+    # and no GitHub-hosted runner does, so hosted behaviour is unchanged and the copybara-exported
+    # public repos keep working exactly as before.
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      if: env.EARTH_BUILDKIT_HOST == ''
 
     - name: Set up QEMU for multi-platform builds
       uses: docker/setup-qemu-action@v3
+      if: env.EARTH_BUILDKIT_HOST == ''
       with:
         platforms: linux/amd64,linux/arm64
 
