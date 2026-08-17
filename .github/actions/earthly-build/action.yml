@@ -31,8 +31,26 @@ runs:
     - name: Download Earthly
       shell: bash
       run: |
-        wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly
-        chmod +x /usr/local/bin/earthly
+        # PINNED AND ARCH-DETECTED. This was `releases/latest/.../earthly-linux-amd64`: a build
+        # that changes under you, and an amd64 binary, which is an exec-format error on the arm64
+        # runner pool these jobs are moving to. Both faults are invisible until the move.
+        # The version matches earthbuild/buildkitd on both shared builders -- mismatched BuildKit
+        # versions produce different cache keys, so client and daemon move together.
+        # $HOME/.local/bin because the ARC runner image has no sudo; GITHUB_PATH does not affect
+        # the step that writes it, so PATH is set here too. Installed as `earth` with an `earthly`
+        # symlink, so ~60 existing call sites resolve without a rename in this change.
+        EARTH_VERSION=v0.8.18
+        case "$(uname -m)" in
+          x86_64)        EARTH_ARCH=amd64 ;;
+          aarch64|arm64) EARTH_ARCH=arm64 ;;
+          *) echo "::error::unsupported machine $(uname -m)"; exit 1 ;;
+        esac
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL "https://github.com/earthbuild/earthbuild/releases/download/${EARTH_VERSION}/earth-linux-${EARTH_ARCH}" -o "$HOME/.local/bin/earth"
+        chmod +x "$HOME/.local/bin/earth"
+        ln -sf "$HOME/.local/bin/earth" "$HOME/.local/bin/earthly"
+        export PATH="$HOME/.local/bin:$PATH"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         earthly --version
 
     - name: Build with Earthly
