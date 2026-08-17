@@ -30,16 +30,27 @@ runs:
     #
     # They are also pointless against a remote builder even where docker exists: earth talks to a
     # buildkitd on another machine, which has its own platform support, and QEMU registered on the
-    # runner does nothing for it. Guarded on EARTH_BUILDKIT_HOST, which every runner pod carries
-    # and no GitHub-hosted runner does, so hosted behaviour is unchanged and the copybara-exported
-    # public repos keep working exactly as before.
+    # runner does nothing for it.
+    #
+    # GUARDED ON runner.environment, NOT ON env.EARTH_BUILDKIT_HOST, AND THE DIFFERENCE IS NOT
+    # COSMETIC. The `env` context in an `if:` expression contains only variables declared in a
+    # workflow/job/step `env:` block. EARTH_BUILDKIT_HOST is injected into the runner POD by
+    # arc-runner-set/values.yaml, so a `run:` shell sees it and an `if:` expression does NOT --
+    # `env.EARTH_BUILDKIT_HOST == ''` is therefore TRUE on the self-hosted runner and the step
+    # executes exactly as before. A guard that silently never fires is worse than no guard,
+    # because the next reader believes the case is handled.
+    #
+    # runner.environment is 'github-hosted' or 'self-hosted' and is supplied by the runner itself,
+    # so it needs nothing declared anywhere. Hosted behaviour is unchanged and the
+    # copybara-exported public repos, which have no shared buildkitd and genuinely need local
+    # buildx, keep working exactly as before.
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      if: env.EARTH_BUILDKIT_HOST == ''
+      if: runner.environment == 'github-hosted'
 
     - name: Set up QEMU for multi-platform builds
       uses: docker/setup-qemu-action@v3
-      if: env.EARTH_BUILDKIT_HOST == ''
+      if: runner.environment == 'github-hosted'
       with:
         platforms: linux/amd64,linux/arm64
 
