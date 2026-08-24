@@ -101,4 +101,35 @@ runs:
           PUSH_FLAG="--push"
         fi
 
-        earthly --ci -P --secret GITHUB_TOKEN $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
+        # -P ONLY FOR THE TARGETS THAT ACTUALLY NEED IT, WHICH IS NOT +test-all.
+        #
+        # -P (--allow-privileged) makes the CLIENT request the security.insecure entitlement at
+        # solve time, whether or not the target uses it. buildkitd denies entitlements it is not
+        # explicitly configured to allow, so passing it unconditionally killed every run:
+        #
+        #   failed to solve: granting entitlement security.insecure is not allowed by
+        #     build daemon configuration
+        #   Help: earth --allow-privileged (earth -P) flag is required
+        #
+        # The help text names the flag that was ALREADY there, which is why this read as a
+        # missing-flag bug. CI - Provider Tailscale failed on main and every branch from
+        # 2026-08-17 -- the day CI moved onto self-hosted buildkitd -- until 2026-08-24.
+        #
+        # WHICH TARGETS NEED IT, read off the Earthfile rather than guessed:
+        #
+        #   Earthfile:188  WITH DOCKER   (+controller-tarball, reached via +package-build/+push)
+        #   Earthfile:204  LOCALLY       (+push-images)
+        #   Earthfile:256  LOCALLY       (+push)
+        #
+        # +test-all is BUILD +test plus BUILD +test-examples and touches none of them.
+        #
+        # The alternative was allowing security.insecure on the daemon, which would hand every
+        # build root on a shared, persistent builder in order to satisfy a flag the failing job
+        # never needed. Narrowing the flag is the cheaper and safer half of that trade.
+        PRIV_FLAG=""
+        case "${{ inputs.earthly-target }}" in
+          +push|+push-images|+push-xpkg|+create-manifest|+package-build|+controller-tarball)
+            PRIV_FLAG="-P" ;;
+        esac
+
+        earthly --ci $PRIV_FLAG --secret GITHUB_TOKEN $PUSH_FLAG $CACHE_FLAGS ${{ inputs.earthly-target }}
