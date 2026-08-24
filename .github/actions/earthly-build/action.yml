@@ -104,6 +104,10 @@ runs:
     # does not need the daemon though: it reads ~/.docker/config.json and forwards the
     # credentials to the remote buildkitd over its session, so writing the file is enough.
     - name: Authenticate to GHCR for the remote cache
+      # SAME GUARD AS THE CACHE FLAGS IT EXISTS TO SERVE. On mill's self-hosted runners there
+      # is no remote cache to authenticate to any more, so this step would write a credential
+      # file nothing reads -- and would fail the job on an empty token for no reason.
+      if: runner.environment == 'github-hosted'
       shell: bash
       env:
         GHCR_TOKEN: ${{ inputs.github-token }}
@@ -126,7 +130,28 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         PUSH_FLAG=""
-        CACHE_FLAGS="--remote-cache=ghcr.io/millstonehq/cache:provider-upjet-tailscale --max-remote-cache"
+        # REMOTE CACHE ONLY WHERE THERE IS NO PERSISTENT BUILDKITD, WHICH MEANS NOT IN mill.
+        #
+        # docs/superpowers/plans/2026-08-15-self-hosted-buildkit-multiarch.md decided this:
+        # "Drops --remote-cache: it pushed the intermediate layer graph to GHCR on every build,
+        # which is a GitHub dependency in the place we most wanted independence, and redundant
+        # against a persistent buildkitd PVC."
+        #
+        # MEASURED 2026-08-24, and the PVC alone is enough. The first green provider build since
+        # 2026-08-17 took 1h05m cold. The very next one, off local cache only, took 3m12s. The
+        # remote tag was six months stale and contributed nothing to either.
+        #
+        # THIS ACTION RUNS IN TWO PLACES, WHICH IS WHY IT IS A GUARD AND NOT A DELETION. In mill
+        # it runs on mill-arm64 against a shared buildkitd with a 40Gi cache PVC and a 30-day
+        # keepDuration. Copybara exports it to a PUBLIC repo where the same steps run on
+        # GitHub-hosted runners that are ephemeral and have no buildkitd to keep anything -- there
+        # the remote cache is the only cache there is. Same reasoning, and the same
+        # runner.environment test, as the buildx/QEMU steps above.
+        if [ "${{ runner.environment }}" = "github-hosted" ]; then
+          CACHE_FLAGS="--remote-cache=ghcr.io/millstonehq/cache:provider-upjet-tailscale --max-remote-cache"
+        else
+          CACHE_FLAGS=""
+        fi
 
         if [ "${{ inputs.push }}" == "true" ]; then
           PUSH_FLAG="--push"
