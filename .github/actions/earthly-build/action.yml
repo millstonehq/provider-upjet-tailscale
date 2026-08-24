@@ -87,6 +87,37 @@ runs:
         if [ -n "${EARTH_BUILDKIT_HOST:-}" ]; then earthly config global.tls_enabled false; fi
         earthly --version
 
+    # GHCR CREDENTIALS, WRITTEN AS A FILE BECAUSE THERE IS NO DOCKER DAEMON TO LOG IN WITH.
+    #
+    # WITHOUT THIS THE REMOTE CACHE FLAGS ARE INERT. The build already passes
+    # --remote-cache=ghcr.io/millstonehq/cache:... --max-remote-cache, but nothing ever
+    # authenticated, and that package is PRIVATE -- so Earthly could neither pull the cache
+    # nor push it. Measured 2026-08-24: the tag existed but was last written 2026-03-06,
+    # six months earlier. Every provider build was therefore a full cold build while the
+    # flags advertised caching that never happened. For an upjet provider that regenerates
+    # 213 CRDs from the Terraform schema, that is about an hour, every time, holding two of
+    # four self-hosted runners.
+    #
+    # `docker login` IS NOT AVAILABLE HERE, AND THAT IS DELIBERATE UPSTREAM. These runners
+    # have no /var/run/docker.sock -- arc-runner-set/values.yaml refuses containerMode: dind
+    # because it would grant privileged execution to anything that can open a PR. Earthly
+    # does not need the daemon though: it reads ~/.docker/config.json and forwards the
+    # credentials to the remote buildkitd over its session, so writing the file is enough.
+    - name: Authenticate to GHCR for the remote cache
+      shell: bash
+      env:
+        GHCR_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ -z "${GHCR_TOKEN:-}" ]; then
+          echo "::error::github-token was not supplied; the remote cache would be silently skipped"
+          exit 1
+        fi
+        mkdir -p "$HOME/.docker"
+        AUTH=$(printf '%s' "x-access-token:${GHCR_TOKEN}" | base64 -w0)
+        printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$AUTH" > "$HOME/.docker/config.json"
+        chmod 600 "$HOME/.docker/config.json"
+        echo "wrote ghcr.io credentials for the remote cache"
+
     - name: Build with Earthly
       shell: bash
       working-directory: ${{ inputs.working-directory }}
