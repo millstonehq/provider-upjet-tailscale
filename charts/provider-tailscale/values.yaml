@@ -23,7 +23,28 @@ provider:
       # Enable debug logging
       debug: false
       # Poll interval for reconciliation
-      poll: "1m"
+      # ONE HOUR, AND THIS IS DRIFT DETECTION -- NOT HOW LONG YOUR CHANGE TAKES.
+      #
+      # READ THIS BEFORE "FIXING" IT BACK TO 1m. The provider WATCHES its managed resources, so
+      # editing a spec in git reconciles as soon as ArgoCD applies it -- within seconds, exactly
+      # as before. --poll governs only the periodic re-check for drift introduced OUTSIDE
+      # Kubernetes: somebody editing the ACL in the Tailscale admin console, or a secret changed
+      # in the GitHub UI. Nothing about the GitOps path got slower.
+      #
+      # WHY IT WAS COSTING SOMETHING. At 1m-5m every managed resource hits its provider API
+      # every interval, forever, whether or not anything changed. That is rate-limit budget and,
+      # on GCP, billable API calls -- spent continuously to answer a question whose answer is
+      # almost always "unchanged". An hour is still far tighter than the time it would take a
+      # human to notice console drift.
+      #
+      # TO FORCE A RECONCILE RIGHT NOW, touch the managed resource -- any metadata change fires
+      # the controller watch immediately:
+      #
+      #   kubectl annotate <kind>/<name> reconcile.mill/requested-at="$(date -u +%FT%TZ)" --overwrite
+      #
+      # Do that after changing something out-of-band, or when verifying a change end to end.
+      # Do NOT lower this value to make a one-off verification faster.
+      poll: "1h"
       # Maximum reconciliation rate
       maxReconcileRate: 10
       # Enable management policies feature
