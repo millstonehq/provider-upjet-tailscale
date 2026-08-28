@@ -5,10 +5,10 @@ PROJECT millstonehq/mill
 # Self-contained build pipeline for the Tailscale Crossplane provider
 
 builder-base:
-    ARG BUILDPLATFORM
+    ARG NATIVEPLATFORM
     # Use pre-built crossplane:builder with Go, OpenTofu, make, and pre-compiled tools
     # (goimports, controller-gen, angryjet, crossplane CLI)
-    FROM --platform=$BUILDPLATFORM ghcr.io/millstonehq/crossplane:builder
+    FROM --platform=$NATIVEPLATFORM ghcr.io/millstonehq/crossplane:builder
 
     WORKDIR /app
 
@@ -118,10 +118,10 @@ test-all:
 
 build:
     # Build on native platform (no QEMU) with cross-compilation
-    ARG BUILDPLATFORM
+    ARG NATIVEPLATFORM
     ARG GOOS=linux
     ARG GOARCH
-    FROM --platform=$BUILDPLATFORM +generate
+    FROM --platform=$NATIVEPLATFORM +generate
 
     # Build the provider binary with optimizations
     # -ldflags="-s -w" strips debug info and symbol table (saves ~15MB)
