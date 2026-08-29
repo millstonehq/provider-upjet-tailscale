@@ -1,5 +1,20 @@
 name: CI
 
+# THIS REPO DOES NOT PUBLISH. mill DOES.
+#
+# This file is copybara-exported from millstonehq/mill, and until 2026-08-29 it carried its own
+# `+push` job -- so both repos published the SAME moving tag,
+# ghcr.io/millstonehq/provider-tailscale:xpkg, which the live Provider auto-activates
+# (revisionActivationPolicy: Automatic). Two writers racing on a tag that deploys itself is the
+# kind of thing that is fine until the day it is not.
+#
+# It never actually collided only because the export chain has been skipping since 2026-03-05, so
+# nothing reached this repo to trigger it. That is a stalled pipeline, not a safeguard.
+#
+# mill is the single publisher: .github/workflows/ci-provider-tailscale.yml, on self-hosted
+# runners. This repo validates -- pull requests and pushes both build and test, so an external
+# contribution is still checked here before copybara carries it back.
+
 on:
   pull_request:
     branches: [main]
@@ -8,12 +23,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-publish:
-    name: Build, Test and Publish
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,47 +40,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Test (PR)
-        if: github.event_name == 'pull_request'
+      - name: Build and Test
         uses: ./.github/actions/earthly-build
         with:
           earthly-target: '+test-all'
           push: 'false'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build, Test and Publish (Main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: ./.github/actions/earthly-build
-        with:
-          earthly-target: '+push'
-          push: 'true'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Summary (PR)
-        if: success() && github.event_name == 'pull_request'
+      - name: Build Summary
+        if: success()
         run: |
           echo "✓ provider-upjet-tailscale built and tested successfully"
           echo "  - All tests passed"
           echo "  - Example validation passed"
           echo "  - Coverage threshold met (40%+)"
-
-      - name: Publish Summary
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          echo "✓ Successfully published provider-upjet-tailscale"
-          echo ""
-          echo "Published package:"
-          echo "  - ghcr.io/millstonehq/provider-tailscale:latest"
-          echo ""
-          echo "Usage:"
-          echo "  kubectl apply -f - <<EOF"
-          echo "  apiVersion: pkg.crossplane.io/v1"
-          echo "  kind: Provider"
-          echo "  metadata:"
-          echo "    name: provider-upjet-tailscale"
-          echo "  spec:"
-          echo "    package: ghcr.io/millstonehq/provider-tailscale:latest"
-          echo "  EOF"
 
       - name: Check if commit is from Copybara Export
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
