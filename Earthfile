@@ -160,9 +160,8 @@ image:
     # +controller-tarball` published an arm64-only image to :latest and :${VERSION}, silently
     # replacing the multi-arch manifest.
     #
-    # That is how ghcr.io/millstonehq/provider-tailscale:latest became arm64-only while
-    # mgmt-prod-eu1-1 (Contabo, amd64) runs it, and why a hand-pushed :latest-amd64 tag exists
-    # as a workaround. A reusable builder must not decide what gets published.
+    # That is how :latest once became arm64-only while amd64 consumers needed it, and why a
+    # single-arch workaround tag exists. A reusable builder must not decide what gets published.
     SAVE IMAGE ghcr.io/millstonehq/provider-tailscale:${VERSION}
 
 image-push:

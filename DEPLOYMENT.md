@@ -5,17 +5,17 @@ This guide walks through deploying the Crossplane Tailscale provider to the Mill
 ## Prerequisites
 
 - Mill repository cloned locally
-- `mill-context` configured for `mgmt-prod`
+- a SOPS age key for your cluster
 - Tailscale API key with appropriate permissions
-- SOPS age key for `SOPS_AGE_KEY_MGMT_PROD`
+- SOPS age key for `SOPS_AGE_KEY_<CLUSTER>`
 
 ## Step 1: Build the Provider
 
 ### Generate Code and Build
 
 ```bash
-# Set context for mgmt-prod
-mill-context use mgmt-prod
+# Point SOPS at your cluster's age key
+export SOPS_AGE_KEY="$SOPS_AGE_KEY_<CLUSTER>"
 
 # Generate provider code from Terraform provider
 earthly +crossplane-provider-tailscale-generate
@@ -48,7 +48,7 @@ This will:
 
 ```bash
 # Navigate to the secrets directory
-cd deploy/mgmt/prod/applications/crossplane-provider-tailscale/oci/us-phoenix-1/mgmt-prod-usp1-1
+cd <your-gitops-repo>/applications/crossplane-provider-tailscale/<cluster>
 
 # Create the secrets file (all values must be base64 encoded)
 cat > tailscale-creds.enc << EOF
@@ -87,7 +87,7 @@ EOF
 ## Step 5: Deploy via ArgoCD
 
 The provider is deployed via the ApplicationSet at:
-`deploy/mgmt/prod/applicationsets/crossplane-provider-tailscale.yaml`
+`<your-gitops-repo>/applicationsets/crossplane-provider-tailscale.yaml`
 
 ### Verify ApplicationSet
 
@@ -274,11 +274,11 @@ kubectl get events --sort-by='.lastTimestamp' | grep tailscale
 
 ```bash
 # Verify SOPS age key is set
-echo $SOPS_AGE_KEY_MGMT_PROD | head -c 20
+echo $SOPS_AGE_KEY_<CLUSTER> | head -c 20
 
 # Test decryption manually
-cd deploy/mgmt/prod/applications/crossplane-provider-tailscale/oci/us-phoenix-1/mgmt-prod-usp1-1
-export SOPS_AGE_KEY="$SOPS_AGE_KEY_MGMT_PROD"
+cd <your-gitops-repo>/applications/crossplane-provider-tailscale/<cluster>
+export SOPS_AGE_KEY="$SOPS_AGE_KEY_<CLUSTER>"
 sops -d tailscale-creds.enc.json
 
 # Check ArgoCD vault plugin status
@@ -294,7 +294,7 @@ kubectl logs -n argocd -l app.kubernetes.io/name=argocd-repo-server | grep sops
 earthly +crossplane-provider-tailscale-image --VERSION=v0.2.0
 
 # Update manifests
-vim deploy/mgmt/prod/applications/crossplane-provider-tailscale/oci/us-phoenix-1/mgmt-prod-usp1-1/manifests/provider.yaml
+vim <your-gitops-repo>/applications/crossplane-provider-tailscale/<cluster>/manifests/provider.yaml
 # Change: package: xpkg.upbound.io/millstonehq/provider-tailscale:v0.2.0
 
 # Commit and push
